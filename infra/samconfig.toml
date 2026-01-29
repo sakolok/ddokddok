@@ -1,0 +1,14 @@
+version = 0.1
+
+[default]
+[default.build]
+use_container = false
+
+[default.deploy]
+stack_name = "elder-voice-companion"
+resolve_s3 = true
+s3_prefix = "elder-voice-companion"
+region = "ap-northeast-2"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+parameter_overrides = "Stage=dev"

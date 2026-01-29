@@ -1,0 +1,517 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Elder Voice Companion - Serverless Backend (Python)
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 15
+    MemorySize: 512
+    Tracing: Active
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        SESSIONS_TABLE: !Ref SessionsTable
+        TURNS_TABLE: !Ref TurnsTable
+        KDSQ_RESPONSES_TABLE: !Ref KdsqResponsesTable
+        SELF_ASSESSMENTS_TABLE: !Ref SelfAssessmentsTable
+        ACTIVITY_TABLE: !Ref ActivityTable
+        POLLY_BUCKET: !Ref PollyBucket
+        ANALYSIS_QUEUE_URL: !Ref AnalysisQueue
+        SNS_TOPIC_ARN: !Ref GuardianAlertsTopic
+        USER_POOL_ID: !Ref UserPool
+        USER_POOL_CLIENT_ID: !Ref UserPoolClient
+        BEDROCK_MODEL_ID: "arn:aws:bedrock:ap-northeast-2:727847798739:inference-profile/apac.anthropic.claude-sonnet-4-20250514-v1:0"
+        MOCK_LLM: "false"
+        NOTIFY_SCORE_THRESHOLD: "6"
+        SELF_ASSESSMENT_NOTIFY_THRESHOLD: "6"
+        LOG_LEVEL: "INFO"
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+
+Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'OPTIONS,POST,GET'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'OPTIONS,POST,GET'"
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: guardian_email
+          AttributeType: S
+        - AttributeName: cognito_username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: guardian_email_index
+          KeySchema:
+            - AttributeName: guardian_email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: cognito_username_index
+          KeySchema:
+            - AttributeName: cognito_username
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: user_id_index
+          KeySchema:
+            - AttributeName: user_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  TurnsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  KdsqResponsesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  SelfAssessmentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: assessment_date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: assessment_date
+          KeyType: RANGE
+
+  ActivityTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  PollyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "elder-voice-companion-polly-${Stage}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Suspended
+
+  AnalysisQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60
+
+  GuardianAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Elder Voice Companion Alerts"
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: elder-voice-companion-user-pool
+      UsernameAttributes: []
+      UsernameConfiguration:
+        CaseSensitive: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+        - Name: guardian_email
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+        - Name: role
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      AutoVerifiedAttributes: []
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: elder-voice-companion-client
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+
+  StartFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.start.handler
+      Events:
+        Start:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /start
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Subscribe
+              Resource: !Ref GuardianAlertsTopic
+
+  TurnFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.turn.handler
+      Timeout: 25
+      MemorySize: 1024
+      Events:
+        Turn:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /turn
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TurnsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref KdsqResponsesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - S3WritePolicy:
+            BucketName: !Ref PollyBucket
+        - S3ReadPolicy:
+            BucketName: !Ref PollyBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - aws-marketplace:ViewSubscriptions
+                - aws-marketplace:Subscribe
+              Resource: "*"
+
+  SessionEndFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.session_end.handler
+      Events:
+        SessionEnd:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /session/end
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt AnalysisQueue.QueueName
+
+  AuthSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.auth_signup.handler
+      Events:
+        AuthSignup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /auth/signup
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminConfirmSignUp
+                - cognito-idp:AdminUpdateUserAttributes
+              Resource: !GetAtt UserPool.Arn
+            - Effect: Allow
+              Action:
+                - sns:Subscribe
+                - sns:CreateTopic
+              Resource: "*"
+
+  AuthLoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.auth_login.handler
+      Events:
+        AuthLogin:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /auth/login
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref SessionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminInitiateAuth
+                - cognito-idp:AdminConfirmSignUp
+                - cognito-idp:AdminGetUser
+              Resource: !GetAtt UserPool.Arn
+
+  AuthGuardianVerifyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.auth_guardian_verify.handler
+      Events:
+        AuthGuardianVerify:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /auth/guardian/verify
+            Method: post
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  SelfAssessmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.self_assessment.handler
+      Events:
+        SelfAssessment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /self-assessment
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SelfAssessmentsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: "*"
+
+  ActivityLogFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.activity_log.handler
+      Events:
+        ActivityLog:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /activity/log
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ActivityTable
+
+  ActivityWeeklyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.activity_weekly.handler
+      Events:
+        ActivityWeekly:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /activity/weekly
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ActivityTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref SelfAssessmentsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref KdsqResponsesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+
+  SessionsListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.sessions_list.handler
+      Events:
+        Sessions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /sessions
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SessionsTable
+
+  SessionGetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.session_get.handler
+      Events:
+        SessionGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /sessions/{session_id}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref TurnsTable
+
+  AnalysisFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.analysis.handler
+      Timeout: 60
+      MemorySize: 1024
+      Events:
+        AnalysisEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AnalysisQueue.Arn
+            BatchSize: 1
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TurnsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref KdsqResponsesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt GuardianAlertsTopic.TopicName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - aws-marketplace:ViewSubscriptions
+                - aws-marketplace:Subscribe
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: "*"
+
+Outputs:
+  ApiUrl:
+    Description: API endpoint
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"

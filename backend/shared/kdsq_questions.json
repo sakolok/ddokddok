@@ -1,0 +1,92 @@
+[
+  {
+    "id": "orientation_01",
+    "type": "orientation",
+    "question": "오늘 날짜나 요일이 어떻게 되는지 여쭤봐도 될까요?",
+    "intent": "orientation_time"
+  },
+  {
+    "id": "memory_01",
+    "type": "memory",
+    "question": "최근에 물건을 어디에 두었는지 기억이 잘 안 날 때가 있으신가요?",
+    "intent": "misplacing_items"
+  },
+  {
+    "id": "memory_02",
+    "type": "memory",
+    "question": "같은 내용을 다시 여쭤보게 되는 일이 가끔 있으신가요?",
+    "intent": "repeated_questions"
+  },
+  {
+    "id": "memory_03",
+    "type": "memory",
+    "question": "약속을 해두고 깜빡하신 적이 있으신가요?",
+    "intent": "missed_appointments"
+  },
+  {
+    "id": "memory_04",
+    "type": "memory",
+    "question": "무언가를 가지러 갔다가 목적을 잊고 돌아온 적이 있으신가요?",
+    "intent": "forgot_purpose"
+  },
+  {
+    "id": "memory_05",
+    "type": "memory",
+    "question": "물건이나 사람 이름이 금방 떠오르지 않아 망설일 때가 있으신가요?",
+    "intent": "word_finding"
+  },
+  {
+    "id": "memory_06",
+    "type": "memory",
+    "question": "대화 내용을 이해하기 어려워서 다시 물어본 적이 있으신가요?",
+    "intent": "comprehension_repeat"
+  },
+  {
+    "id": "orientation_02",
+    "type": "orientation",
+    "question": "길을 가다 방향을 헷갈리거나 길을 잃은 적이 있으신가요?",
+    "intent": "getting_lost"
+  },
+  {
+    "id": "daily_01",
+    "type": "daily",
+    "question": "요즘 계산(물건값, 거스름돈 등)이 예전보다 어렵게 느껴지시나요?",
+    "intent": "calculation_decline"
+  },
+  {
+    "id": "mood_01",
+    "type": "mood",
+    "question": "예전과 비교해 성격이 달라졌다고 느끼시나요?",
+    "intent": "personality_change"
+  },
+  {
+    "id": "daily_02",
+    "type": "daily",
+    "question": "예전에 잘 다루던 기구를 사용할 때 어려움이 있으신가요?",
+    "intent": "tool_use_decline"
+  },
+  {
+    "id": "daily_03",
+    "type": "daily",
+    "question": "집안 정리나 정돈이 예전보다 힘들게 느껴지시나요?",
+    "intent": "housekeeping_decline"
+  },
+  {
+    "id": "daily_04",
+    "type": "daily",
+    "question": "상황에 맞게 옷을 고르는 일이 어렵게 느껴지시나요?",
+    "intent": "clothing_choice"
+  },
+  {
+    "id": "social_01",
+    "type": "social",
+    "question": "혼자 대중교통을 이용해 목적지에 가는 게 어렵게 느껴지시나요?",
+    "intent": "public_transport"
+  },
+  {
+    "id": "daily_05",
+    "type": "daily",
+    "question": "옷이 더러워졌을 때 갈아입는 것이 귀찮게 느껴지시나요?",
+    "intent": "clothing_hygiene"
+  }
+]

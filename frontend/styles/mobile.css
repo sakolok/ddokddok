@@ -1,0 +1,120 @@
+/* 모바일 앱 최적화 스타일 */
+
+/* 터치 스크롤 개선 */
+* {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* 터치 하이라이트 제거 */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 입력 필드는 선택 가능하게 */
+input, textarea {
+  -webkit-user-select: text;
+  -khtml-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* iOS 스타일 제거 */
+input, button, textarea {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+/* 모바일 뷰포트 최적화 */
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+#root {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 터치 피드백 개선 */
+button, [role="button"], .cursor-pointer {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+button:active, [role="button"]:active, .cursor-pointer:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
+/* 스크롤바 숨기기 (모바일에서) */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* PWA 상태바 영역 */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 앱 설치 버튼 스타일 */
+.install-button {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+/* 로딩 스피너 */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 모바일 키보드 대응 */
+@media (max-height: 500px) {
+  .keyboard-adjust {
+    height: 50vh;
+  }
+}
