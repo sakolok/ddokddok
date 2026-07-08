@@ -18,3 +18,12 @@ frontend/.env*
 
 # Logs
 *.log
+
+# AI agent / local assistant workspaces
+AGENTS.md
+CLAUDE.md
+.codex/
+.claude/
+.cursor/
+.aider*
+.windsurf/
