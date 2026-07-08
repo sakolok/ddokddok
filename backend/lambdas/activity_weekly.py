@@ -6,11 +6,14 @@ from boto3.dynamodb.conditions import Key
 from shared.response import json_response
 from shared.bedrock import invoke_chat
 from shared.kdsq_scoring import compute_kdsq_stats
+from shared.auth import AuthError, require_user_access
+from shared.metrics import put_metric
 
 _dynamodb = boto3.resource("dynamodb")
 ACTIVITY_TABLE = os.getenv("ACTIVITY_TABLE")
 SELF_ASSESSMENTS_TABLE = os.getenv("SELF_ASSESSMENTS_TABLE")
 KDSQ_RESPONSES_TABLE = os.getenv("KDSQ_RESPONSES_TABLE")
+PROMPT_VERSION = os.getenv("PROMPT_VERSION", "elder-companion-v1")
 
 activity_table = _dynamodb.Table(ACTIVITY_TABLE) if ACTIVITY_TABLE else None
 self_table = _dynamodb.Table(SELF_ASSESSMENTS_TABLE) if SELF_ASSESSMENTS_TABLE else None
@@ -30,6 +33,10 @@ def handler(event, _context):
     user_id = (params.get("user_id") or "").strip()
     if not user_id:
         return json_response(400, {"message": "missing_user_id"})
+    try:
+        require_user_access(event, user_id)
+    except AuthError:
+        return json_response(403, {"message": "forbidden"})
 
     now = datetime.now(timezone.utc)
     start_day = (now - timedelta(days=6)).date()
@@ -101,8 +108,9 @@ def handler(event, _context):
         })
 
     # Bedrock summary
-    summary = "최근 7일간 활동 데이터가 충분하지 않습니다."
+    summary = "최근 7일간 활동 데이터가 충분하지 않아 참고용 요약만 제공합니다."
     prompt = {
+        "prompt_version": PROMPT_VERSION,
         "task": "weekly_activity_summary",
         "stats": {
             "total_time_min": total_time_min,
@@ -124,6 +132,7 @@ def handler(event, _context):
         if isinstance(resp, dict) and resp.get("summary"):
             summary = resp["summary"]
     except Exception:
+        put_metric("WeeklySummaryFallback", dimensions={"Reason": "bedrock_exception"})
         pass
 
     # KDSQ weekly analysis (rule-based)
@@ -143,6 +152,7 @@ def handler(event, _context):
 
     return json_response(200, {
         "summary": summary,
+        "prompt_version": PROMPT_VERSION,
         "total_chat_sessions": total_chat_sessions,
         "total_game_sessions": total_game_sessions,
         "total_time_min": total_time_min,

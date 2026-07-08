@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { saveGameResult } from '@/lib/gameStats';
+import { useActivity } from '@/app/contexts/ActivityContext';
 
 interface MathGameProps {
   onBack: () => void;
-  userInfo: { name: string; id: string };
+  userInfo: { name: string; id: string; userId?: string };
 }
 
 type Operation = '+' | '-' | '×';
@@ -25,6 +26,8 @@ export function MathGame({ onBack, userInfo }: MathGameProps) {
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const sessionRef = useRef<string | null>(null);
+  const { startSession, endSession } = useActivity();
 
   const generateQuestion = (): Question => {
     const operations: Operation[] = ['+', '-', '×'];
@@ -54,6 +57,7 @@ export function MathGame({ onBack, userInfo }: MathGameProps) {
   };
 
   const startGame = () => {
+    sessionRef.current = startSession('game', 'math');
     setIsGameActive(true);
     setScore(0);
     setTimeLeft(30);
@@ -82,8 +86,17 @@ export function MathGame({ onBack, userInfo }: MathGameProps) {
         score: score,
         accuracy: accuracy
       });
+      if (sessionRef.current) {
+        endSession(sessionRef.current, score, {
+          completed: true,
+          accuracy,
+          correctCount,
+          wrongCount
+        });
+        sessionRef.current = null;
+      }
     }
-  }, [isGameActive, timeLeft]);
+  }, [correctCount, endSession, isGameActive, score, timeLeft, userInfo.id, wrongCount]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -13,11 +13,11 @@ sam build
 ## Deploy
 ```
 cd infra
-sam deploy
+sam deploy --profile noin-dev --region ap-northeast-2
 ```
 
 ## Notes
 - Update `infra/samconfig.toml` if you want a different region/stack name.
-- After deploy, subscribe guardian email to the SNS topic in the AWS Console.
-- Set `BEDROCK_MODEL_ID` and `MOCK_LLM=false` in Lambda environment variables to enable Bedrock.
-```
+- Bedrock runtime model is controlled by the `BedrockModelId` parameter.
+- Protected user APIs use the Cognito authorizer; the frontend sends the login `id_token`.
+- Optional ops email: deploy with `--parameter-overrides Stage=dev OpsAlertEmail=you@example.com` to create alarm/budget email subscriptions.

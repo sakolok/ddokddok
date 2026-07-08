@@ -92,7 +92,8 @@ def compute_kdsq_stats(responses: List[dict]) -> Dict[str, object]:
         status_emoji = "😣"
 
     summary = (
-        f"최근 7일 KDSQ 질문 {total}회 중 우려 응답 {concern_count}회가 관찰되었습니다."
+        f"최근 7일 KDSQ 기반 자가 점검 질문 {total}회 중 "
+        f"우려 응답 {concern_count}회가 관찰되었습니다. 의료 진단이 아닌 참고 지표입니다."
     )
     if concern_examples:
         examples_text = " / ".join(

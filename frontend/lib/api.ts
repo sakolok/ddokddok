@@ -1,11 +1,34 @@
-const DEFAULT_API_BASE_URL = 'https://8fvbrb5ai3.execute-api.ap-northeast-2.amazonaws.com/dev';
+const DEFAULT_API_BASE_URL = 'https://vwjc2p1w4e.execute-api.ap-northeast-2.amazonaws.com/dev';
+const AUTH_TOKEN_KEY = 'elderVoiceCompanionAuthToken';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
 
+export function setAuthToken(token?: string) {
+  if (!token) return;
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
 async function apiFetch<T>(path: string, options: RequestInit): Promise<T> {
+  const headers = new Headers(options.headers || {});
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const token = getAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options
+    ...options,
+    headers
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -47,20 +70,44 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload)
     }),
-  login: (payload: LoginPayload) =>
-    apiFetch<LoginResponse>('/auth/login', {
+  login: async (payload: LoginPayload) => {
+    const response = await apiFetch<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload)
-    }),
+    });
+    setAuthToken(response.id_token || response.access_token);
+    return response;
+  },
   guardianVerify: (user_id: string, pin: string) =>
     apiFetch<{ ok: boolean }>('/auth/guardian/verify', {
       method: 'POST',
       body: JSON.stringify({ user_id, pin })
     }),
-  startSession: (user_id: string) =>
-    apiFetch<{ user_id: string; session_id: string }>('/start', {
+  startSession: (user_id: string, welcome_text?: string) =>
+    apiFetch<{ user_id: string; session_id: string; welcome_text?: string; audio?: { url?: string } }>('/start', {
       method: 'POST',
-      body: JSON.stringify({ user_id, consent: true })
+      body: JSON.stringify({ user_id, consent: true, welcome_text })
+    }),
+  transcribe: (payload: {
+    user_id: string;
+    session_id?: string;
+    audio_base64: string;
+    content_type: string;
+  }) =>
+    apiFetch<{ transcript: string; job_name: string; language_code?: string }>('/transcribe', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  transcribeStreamUrl: (payload: { user_id: string; session_id?: string }) =>
+    apiFetch<{
+      url: string;
+      language_code: string;
+      media_encoding: 'pcm';
+      sample_rate: number;
+      expires_in: number;
+    }>('/transcribe/stream-url', {
+      method: 'POST',
+      body: JSON.stringify(payload)
     }),
   turn: (session_id: string, user_id: string, final_transcript: string) =>
     apiFetch<{ assistant_text: string; audio?: { url?: string }; tags?: any }>('/turn', {

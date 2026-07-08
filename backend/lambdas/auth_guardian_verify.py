@@ -2,6 +2,7 @@ import json
 from shared.response import json_response
 from shared.ddb import users_table
 from shared.utils import verify_pin
+from shared.auth import AuthError, require_user_access
 
 
 def handler(event, _context):
@@ -15,6 +16,10 @@ def handler(event, _context):
 
     if not user_id or not pin:
         return json_response(400, {"message": "missing_required_fields"})
+    try:
+        require_user_access(event, user_id)
+    except AuthError:
+        return json_response(403, {"message": "forbidden"})
     if len(pin) != 4 or not pin.isdigit():
         return json_response(400, {"message": "pin_must_be_4_digits"})
 

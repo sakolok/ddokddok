@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useActivity } from '@/app/contexts/ActivityContext';
 import Layout from './Layout';
 import { api } from '@/lib/api';
+import { TranscribeStreamingSession, isTranscribeStreamingSupported } from '@/lib/transcribeStreaming';
 
 interface ChatbotPageProps {
   userInfo: { name: string; id: string; userId?: string };
@@ -23,6 +24,8 @@ interface Message {
 interface ApiSession {
   user_id: string;
   session_id: string;
+  welcomeText?: string;
+  welcomeAudioUrl?: string;
 }
 
 export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
@@ -31,8 +34,13 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [transcribeSupported, setTranscribeSupported] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
+  const [streamingTranscript, setStreamingTranscript] = useState('');
   const [currentBotResponse, setCurrentBotResponse] = useState('');
+  const [textInput, setTextInput] = useState('');
+  const [voiceError, setVoiceError] = useState('');
   const [apiSession, setApiSession] = useState<ApiSession | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const apiSessionRef = useRef<ApiSession | null>(null);
@@ -40,6 +48,9 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const recognitionActiveRef = useRef(false);
+  const streamingSessionRef = useRef<TranscribeStreamingSession | null>(null);
+  const recordingModeRef = useRef<'browser' | 'streaming' | null>(null);
+  const streamingTranscriptRef = useRef('');
   const lastSentRef = useRef<string>('');
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -52,8 +63,14 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
   const startSession = async (): Promise<ApiSession | null> => {
     if (!userInfo.userId) return null;
     try {
-      const data = await api.startSession(userInfo.userId);
-      return { user_id: data.user_id, session_id: data.session_id };
+      const welcomeText = `안녕하세요 ${userInfo?.name || '사용자'}님! 오늘 기분은 어떠신가요? 편하게 이야기해주세요.`;
+      const data = await api.startSession(userInfo.userId, welcomeText);
+      return {
+        user_id: data.user_id,
+        session_id: data.session_id,
+        welcomeText: data.welcome_text || welcomeText,
+        welcomeAudioUrl: data.audio?.url
+      };
     } catch (error) {
       console.error('세션 시작 오류:', error);
       return null;
@@ -103,11 +120,16 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
         // 초기 환영 메시지 추가
         const welcomeMessage: Message = {
           id: Date.now(),
-          text: `안녕하세요 ${userInfo?.name || '사용자'}님! 오늘 기분은 어떠신가요? 편하게 이야기해주세요.`,
+          text: session.welcomeText || `안녕하세요 ${userInfo?.name || '사용자'}님! 오늘 기분은 어떠신가요? 편하게 이야기해주세요.`,
           sender: 'bot',
-          timestamp: new Date()
+          timestamp: new Date(),
+          audioUrl: session.welcomeAudioUrl
         };
         setMessages([welcomeMessage]);
+        setCurrentBotResponse(welcomeMessage.text);
+        window.setTimeout(() => {
+          speakText(welcomeMessage.text, welcomeMessage.audioUrl);
+        }, 250);
       } else {
         console.warn('API 연결 실패');
         setIsDemoMode(true);
@@ -135,16 +157,19 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      streamingSessionRef.current?.abort();
       stopSpeaking();
     };
   }, []);
 
   // 음성 인식 및 합성 초기화
   useEffect(() => {
+    setTranscribeSupported(isTranscribeStreamingSupported());
+
     // 음성 인식 지원 확인
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (typeof SpeechRecognition === 'function') {
       setSpeechSupported(true);
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       
       recognitionRef.current.continuous = true;
@@ -153,7 +178,9 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
       
       recognitionRef.current.onstart = () => {
         recognitionActiveRef.current = true;
+        recordingModeRef.current = 'browser';
         setIsRecording(true);
+        setVoiceError('');
         setInterimTranscript('');
       };
       
@@ -218,8 +245,15 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
       recognitionRef.current.onerror = (event: any) => {
         console.error('음성 인식 오류:', event.error);
         recognitionActiveRef.current = false;
+        recordingModeRef.current = null;
         setIsRecording(false);
         setInterimTranscript('');
+        if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') {
+          setSpeechSupported(false);
+          setVoiceError('브라우저 음성 인식이 실패해 실시간 음성 인식으로 전환했습니다. 마이크 버튼을 다시 눌러주세요.');
+        } else {
+          setVoiceError('마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+        }
         if (silenceTimerRef.current) {
           window.clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = null;
@@ -229,10 +263,11 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
       recognitionRef.current.onend = () => {
         // 사용자가 수동으로 중지한 경우가 아니라면 상태 업데이트
         recognitionActiveRef.current = false;
-        if (isRecording) {
-          setIsRecording(false);
-          setInterimTranscript('');
+        if (recordingModeRef.current === 'browser') {
+          recordingModeRef.current = null;
         }
+        setIsRecording(false);
+        setInterimTranscript('');
         if (silenceTimerRef.current) {
           window.clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = null;
@@ -254,16 +289,99 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
     scrollToBottom();
   }, [messages]);
 
-  // 음성 인식 시작/중지
-  const toggleRecording = () => {
-    if (!speechSupported) {
-      alert('이 브라우저는 음성 인식을 지원하지 않습니다.');
+  const startTranscribeRecording = async () => {
+    if (!userInfo.userId) {
+      alert('로그인 사용자 정보가 없어 음성 입력을 시작할 수 없습니다.');
       return;
     }
-    if (!recognitionRef.current) return;
+    if (!transcribeSupported) {
+      alert('이 브라우저는 실시간 음성 입력을 지원하지 않습니다. 아래 텍스트 입력을 사용해주세요.');
+      return;
+    }
+
+    try {
+      const streamConfig = await api.transcribeStreamUrl({
+        user_id: userInfo.userId,
+        session_id: apiSessionRef.current?.session_id
+      });
+
+      const streamSession = new TranscribeStreamingSession({
+        url: streamConfig.url,
+        targetSampleRate: streamConfig.sample_rate,
+        onOpen: () => {
+          setVoiceError('');
+        },
+        onTranscript: (update) => {
+          streamingTranscriptRef.current = update.transcript;
+          setStreamingTranscript(update.transcript);
+        },
+        onError: (message) => {
+          console.error('실시간 음성 인식 오류:', message);
+          setVoiceError('실시간 음성 인식 연결에 문제가 생겼습니다. 다시 시도하거나 텍스트로 입력해주세요.');
+        }
+      });
+
+      streamingSessionRef.current = streamSession;
+      recordingModeRef.current = 'streaming';
+      streamingTranscriptRef.current = '';
+      setStreamingTranscript('');
+      setVoiceError('');
+      await streamSession.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('실시간 음성 인식 시작 실패:', error);
+      streamingSessionRef.current?.abort();
+      streamingSessionRef.current = null;
+      recordingModeRef.current = null;
+      setIsRecording(false);
+      setVoiceError('실시간 음성 인식을 시작하지 못했습니다. 마이크 권한과 네트워크 상태를 확인해주세요.');
+    }
+  };
+
+  const stopTranscribeRecording = async () => {
+    const streamSession = streamingSessionRef.current;
+    if (!streamSession) return;
+
+    setIsRecording(false);
+    setIsTranscribing(true);
+    setVoiceError('');
+    try {
+      const transcript = (await streamSession.stop()).trim();
+      const text = transcript || streamingTranscriptRef.current.trim();
+      if (!text) {
+        setVoiceError('인식된 음성이 없습니다. 다시 말씀하시거나 직접 입력해주세요.');
+        return;
+      }
+      lastSentRef.current = text;
+      setStreamingTranscript('');
+      streamingTranscriptRef.current = '';
+      sendMessageWithText(text);
+    } catch (error) {
+      console.error('실시간 음성 인식 종료 실패:', error);
+      setVoiceError('음성 인식을 종료하는 중 문제가 생겼습니다. 다시 시도해주세요.');
+    } finally {
+      streamingSessionRef.current = null;
+      recordingModeRef.current = null;
+      setIsTranscribing(false);
+    }
+  };
+
+  // 음성 인식 시작/중지
+  const toggleRecording = () => {
+    if (isTranscribing) return;
+
+    if (!speechSupported && !transcribeSupported) {
+      alert('이 브라우저는 음성 입력을 지원하지 않습니다. 아래 텍스트 입력을 사용해주세요.');
+      return;
+    }
 
     if (recognitionActiveRef.current || isRecording) {
-      // 음성 인식 중지
+      if (recordingModeRef.current === 'streaming') {
+        void stopTranscribeRecording();
+        return;
+      }
+
+      if (!recognitionRef.current) return;
       recognitionRef.current.stop();
       const pendingText = latestTranscriptRef.current.trim();
       if (pendingText) {
@@ -278,14 +396,24 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
         silenceTimerRef.current = null;
       }
     } else {
-      // 음성 인식 시작
-      try {
-        recognitionRef.current.start();
-      } catch (err: any) {
-        if (err?.name !== 'InvalidStateError') {
-          console.error('음성 인식 시작 실패:', err);
+      if (transcribeSupported) {
+        void startTranscribeRecording();
+        return;
+      }
+
+      if (speechSupported && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+          return;
+        } catch (err: any) {
+          if (err?.name !== 'InvalidStateError') {
+            console.error('음성 인식 시작 실패:', err);
+            setVoiceError('브라우저 음성 인식 시작에 실패해 실시간 음성 인식으로 전환합니다.');
+            setSpeechSupported(false);
+          }
         }
       }
+      startTranscribeRecording();
     }
   };
 
@@ -334,12 +462,12 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
 
   // 브라우저 TTS 사용
   const speakWithTTS = (text: string) => {
-    if (!synthRef.current) {
+    if (!synthRef.current || typeof window.SpeechSynthesisUtterance === 'undefined') {
       setIsSpeaking(false);
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new window.SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
     utterance.rate = 0.7;
     utterance.pitch = 1;
@@ -374,6 +502,7 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
 
   const sendMessageWithText = async (text: string) => {
     if (!text.trim() || isLoading) return;
+    setVoiceError('');
 
     // 사용자 메시지 추가
     const userMessage: Message = {
@@ -450,6 +579,13 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
     }
   };
 
+  const handleTextSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const text = textInput.trim();
+    if (!text || isLoading || isTranscribing) return;
+    setTextInput('');
+    sendMessageWithText(text);
+  };
 
   const formatTime = (timestamp: Date) => {
     return timestamp.toLocaleTimeString('ko-KR', { 
@@ -498,7 +634,7 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
               <div className="relative">
                 {/* 캐릭터 몸체 */}
                 <div className={`relative w-28 h-28 transition-all duration-300 ${
-                  isSpeaking ? 'animate-pulse scale-110' : isLoading ? 'animate-bounce' : 'hover:scale-105'
+                  isSpeaking ? 'animate-pulse scale-110' : (isLoading || isTranscribing) ? 'animate-bounce' : 'hover:scale-105'
                 }`}>
                   {/* 메인 몸체 (노란 원) */}
                   <div className="w-full h-full bg-gradient-to-br from-yellow-300 to-yellow-400 rounded-full shadow-lg relative overflow-hidden">
@@ -553,29 +689,27 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
                   </div>
                 </div>
                 
-                {/* 말하는 중 표시 */}
-                {isSpeaking && (
+                {/* 상태 표시 (한줄) */}
+                {(isSpeaking || isLoading || isRecording || isTranscribing) && (
                   <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse shadow-lg">
-                      🗣️ 말하는 중
-                    </div>
-                  </div>
-                )}
-                
-                {/* 로딩 중 표시 */}
-                {isLoading && (
-                  <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full shadow-lg">
-                      💭 생각 중
-                    </div>
-                  </div>
-                )}
-                
-                {/* 음성 인식 중 표시 */}
-                {isRecording && (
-                  <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse shadow-lg">
-                      👂 듣는 중
+                    <div
+                      className={`text-white text-xs px-2 py-1 rounded-full shadow-lg whitespace-nowrap ${
+                        isSpeaking
+                          ? 'bg-green-500 animate-pulse'
+                          : isLoading
+                          ? 'bg-blue-500'
+                          : isTranscribing
+                          ? 'bg-purple-500 animate-pulse'
+                          : 'bg-red-500 animate-pulse'
+                      }`}
+                    >
+                      {isSpeaking
+                        ? '🗣️ 말하는 중'
+                        : isLoading
+                        ? '💭 생각 중'
+                        : isTranscribing
+                        ? '📝 변환 중'
+                        : '👂 듣는 중'}
                     </div>
                   </div>
                 )}
@@ -618,6 +752,12 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
               className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
               onClick={() => {
                 setCurrentBotResponse('');
+                if (!recognitionActiveRef.current && !isSpeaking && !isRecording && !isTranscribing && !isLoading) {
+                  if (transcribeSupported) {
+                    void startTranscribeRecording();
+                    return;
+                  }
+                }
                 if (speechSupported && recognitionRef.current && !recognitionActiveRef.current && !isSpeaking) {
                   try {
                     recognitionRef.current.start();
@@ -646,8 +786,8 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
             </div>
           )}
 
-          {/* 실시간 음성 인식 텍스트 표시 */}
-          {isRecording && interimTranscript && (
+          {/* 브라우저 음성 인식 텍스트 표시 */}
+          {isRecording && recordingModeRef.current === 'browser' && interimTranscript && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
               <div className="bg-white rounded-3xl p-8 mx-4 max-w-2xl w-full shadow-2xl">
                 <div className="text-center">
@@ -736,10 +876,18 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
               </button>
             </div>
           )}
+
+          {isRecording && recordingModeRef.current === 'streaming' && (
+            <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-center">
+              <p className="min-h-[1.5rem] text-sm text-gray-800">
+                {streamingTranscript || '듣고 있어요. 천천히 말씀해주세요.'}
+              </p>
+            </div>
+          )}
           
           <div className="flex justify-center items-center gap-6">
             {/* 마이크 버튼 */}
-            {speechSupported ? (
+            {(speechSupported || transcribeSupported) ? (
               <button
                 onClick={toggleRecording}
                 className={`p-6 rounded-full transition-all shadow-xl ${
@@ -747,7 +895,7 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
                     ? 'bg-red-500 text-white animate-pulse scale-110 shadow-red-200'
                     : 'bg-gradient-to-r from-green-400 to-green-600 text-white hover:from-green-500 hover:to-green-700 hover:scale-105 shadow-green-200'
                 }`}
-                disabled={isLoading}
+                disabled={isLoading || isTranscribing}
                 title={isRecording ? "🛑 음성 인식 중지 (다시 클릭)" : "🎤 음성으로 말하기"}
               >
                 {isRecording ? (
@@ -769,21 +917,49 @@ export default function ChatbotPage({ userInfo, onBack }: ChatbotPageProps) {
             )}
           </div>
 
+          <form onSubmit={handleTextSubmit} className="mt-4 flex gap-2">
+            <input
+              value={textInput}
+              onChange={(event) => setTextInput(event.target.value)}
+              className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="음성 입력이 안 되면 직접 입력하세요"
+              disabled={isLoading || isTranscribing}
+            />
+            <button
+              type="submit"
+              disabled={!textInput.trim() || isLoading || isTranscribing}
+              className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              전송
+            </button>
+          </form>
+
           
           {/* 도움말 */}
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600 font-medium">
-              {isRecording ? (
-                <span className="text-red-600">🎤 말씀하시면 실시간으로 인식됩니다 (마이크 버튼으로 중지 가능)</span>
+              {isTranscribing ? (
+                <span className="text-purple-600">📝 음성 인식 결과를 정리하는 중입니다</span>
+              ) : isRecording ? (
+                <span className="text-red-600">
+                  {recordingModeRef.current === 'streaming'
+                    ? '🎤 실시간 인식 중입니다. 마이크 버튼을 다시 누르면 전송합니다'
+                    : '🎤 말씀하시면 실시간으로 인식됩니다 (마이크 버튼으로 중지 가능)'}
+                </span>
               ) : isSpeaking ? (
                 <span className="text-green-600">🗣️ 삐약이가 응답 중입니다</span>
               ) : (
-                <span>🗣️마이크 버튼을 눌러 음성으로 대화해보세요</span>
+                <span>🗣️ 마이크 버튼을 눌러 음성으로 대화해보세요</span>
               )}
             </p>
             {isRecording && (
               <p className="text-xs text-red-500 mt-1 animate-pulse">
                 💡 마이크 버튼을 다시 누르면 음성 인식이 중지됩니다
+              </p>
+            )}
+            {voiceError && (
+              <p className="text-xs text-amber-600 mt-2">
+                {voiceError}
               </p>
             )}
           </div>

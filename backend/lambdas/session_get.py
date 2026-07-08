@@ -2,6 +2,7 @@ import os
 import boto3
 from boto3.dynamodb.conditions import Key
 from shared.response import json_response
+from shared.auth import AuthError, require_session_access
 
 _dynamodb = boto3.resource("dynamodb")
 SESSIONS_TABLE = os.getenv("SESSIONS_TABLE")
@@ -20,6 +21,10 @@ def handler(event, _context):
     sess = sessions_table.get_item(Key={"session_id": session_id}).get("Item")
     if not sess:
         return json_response(404, {"message": "not_found"})
+    try:
+        require_session_access(event, sess)
+    except AuthError:
+        return json_response(403, {"message": "forbidden"})
 
     turns_resp = turns_table.query(
         KeyConditionExpression=Key("session_id").eq(session_id),

@@ -5,6 +5,8 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from shared.response import json_response
 from shared.ddb import users_table
+from shared.utils import ttl_epoch
+from shared.auth import AuthError, require_user_access
 
 _dynamodb = boto3.resource("dynamodb")
 _sns = boto3.client("sns")
@@ -50,6 +52,10 @@ def handler(event, _context):
 
     if not user_id or answers is None:
         return json_response(400, {"message": "missing_required_fields"})
+    try:
+        require_user_access(event, user_id)
+    except AuthError:
+        return json_response(403, {"message": "forbidden"})
     if not isinstance(answers, list) or len(answers) != 15:
         return json_response(400, {"message": "answers_must_be_15"})
 
@@ -65,6 +71,7 @@ def handler(event, _context):
             "score": score,
             "answers": answers,
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": ttl_epoch(365),
         }
     )
 

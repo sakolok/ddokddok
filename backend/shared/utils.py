@@ -1,11 +1,13 @@
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
-import os
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+def ttl_epoch(days):
+    return int((datetime.now(timezone.utc) + timedelta(days=days)).timestamp())
 
 def new_id(prefix):
     return f"{prefix}_{uuid.uuid4().hex}"

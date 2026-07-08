@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { saveGameResult } from '@/lib/gameStats';
+import { useActivity } from '@/app/contexts/ActivityContext';
 
 interface ColorGameProps {
   onBack: () => void;
-  userInfo: { name: string; id: string };
+  userInfo: { name: string; id: string; userId?: string };
 }
 
 type ColorName = '빨강' | '파랑' | '노랑' | '초록';
@@ -54,6 +55,8 @@ export function ColorGame({ onBack, userInfo }: ColorGameProps) {
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const sessionRef = useRef<string | null>(null);
+  const { startSession, endSession } = useActivity();
 
   const generateQuestion = (): ColorQuestion => {
     const text = colorNames[Math.floor(Math.random() * colorNames.length)];
@@ -67,6 +70,7 @@ export function ColorGame({ onBack, userInfo }: ColorGameProps) {
   };
 
   const startGame = () => {
+    sessionRef.current = startSession('game', 'color');
     setIsGameActive(true);
     setScore(0);
     setTimeLeft(30);
@@ -94,8 +98,17 @@ export function ColorGame({ onBack, userInfo }: ColorGameProps) {
         score: score,
         accuracy: accuracy
       });
+      if (sessionRef.current) {
+        endSession(sessionRef.current, score, {
+          completed: true,
+          accuracy,
+          correctCount,
+          wrongCount
+        });
+        sessionRef.current = null;
+      }
     }
-  }, [isGameActive, timeLeft]);
+  }, [correctCount, endSession, isGameActive, score, timeLeft, userInfo.id, wrongCount]);
 
   const handleAnswer = (selectedColor: ColorValue) => {
     if (!question) return;

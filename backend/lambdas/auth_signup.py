@@ -30,6 +30,8 @@ def handler(event, _context):
     if len(pin) != 4 or not pin.isdigit():
         return json_response(400, {"message": "pin_must_be_4_digits"})
 
+    created_at = now_iso()
+    user_id = new_id("user")
     attrs = [
         {"Name": "custom:role", "Value": "senior"},
         {"Name": "custom:guardian_email", "Value": guardian_email},
@@ -49,17 +51,19 @@ def handler(event, _context):
             Password=password,
             Permanent=True,
         )
-        _cognito.admin_confirm_sign_up(
-            UserPoolId=USER_POOL_ID,
-            Username=username,
-        )
+        try:
+            _cognito.admin_confirm_sign_up(
+                UserPoolId=USER_POOL_ID,
+                Username=username,
+            )
+        except _cognito.exceptions.NotAuthorizedException:
+            # Already confirmed; continue
+            pass
     except _cognito.exceptions.UsernameExistsException:
         return json_response(409, {"message": "user_exists"})
     except _cognito.exceptions.InvalidPasswordException:
         return json_response(400, {"message": "password_too_short"})
 
-    created_at = now_iso()
-    user_id = new_id("user")
     pin_salt, pin_hash = hash_pin(pin)
     guardian_topic_arn = None
     try:

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { RotateCcw } from 'lucide-react';
 import GameWrapper from './GameWrapper';
 import { saveGameResult } from '@/lib/gameStats';
+import { useActivity } from '@/app/contexts/ActivityContext';
 
 interface Card {
   id: number;
@@ -12,7 +13,7 @@ interface Card {
 
 interface MemoryCardGameProps {
   onBack: () => void;
-  userInfo: { name: string; id: string };
+  userInfo: { name: string; id: string; userId?: string };
 }
 
 const emojis = ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🥝'];
@@ -27,8 +28,17 @@ export function MemoryCardGame({ onBack, userInfo }: MemoryCardGameProps) {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const previewTimerRef = useRef<number | null>(null);
+  const sessionRef = useRef<string | null>(null);
+  const completedRef = useRef(false);
+  const { startSession, endSession } = useActivity();
 
   const initializeGame = () => {
+    if (sessionRef.current && !completedRef.current) {
+      endSession(sessionRef.current, score, { completed: false, moves, matches });
+    }
+    sessionRef.current = startSession('game', 'memory');
+    completedRef.current = false;
+
     const shuffledEmojis = [...emojis, ...emojis]
       .sort(() => Math.random() - 0.5)
       .map((value, index) => ({
@@ -61,6 +71,9 @@ export function MemoryCardGame({ onBack, userInfo }: MemoryCardGameProps) {
     return () => {
       if (previewTimerRef.current) {
         window.clearTimeout(previewTimerRef.current);
+      }
+      if (sessionRef.current && !completedRef.current) {
+        endSession(sessionRef.current, score, { completed: false, moves, matches });
       }
     };
   }, []);
@@ -134,6 +147,16 @@ export function MemoryCardGame({ onBack, userInfo }: MemoryCardGameProps) {
         score: finalScore,
         accuracy: accuracy
       });
+      if (sessionRef.current) {
+        completedRef.current = true;
+        endSession(sessionRef.current, finalScore, {
+          completed: true,
+          accuracy,
+          moves,
+          matches
+        });
+        sessionRef.current = null;
+      }
     }
   }, [isGameComplete, gameCompleted, matches, moves, userInfo.id]);
 

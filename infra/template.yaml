@@ -4,7 +4,7 @@ Description: Elder Voice Companion - Serverless Backend (Python)
 
 Globals:
   Function:
-    Runtime: python3.11
+    Runtime: python3.14
     Timeout: 15
     MemorySize: 512
     Tracing: Active
@@ -17,20 +17,54 @@ Globals:
         SELF_ASSESSMENTS_TABLE: !Ref SelfAssessmentsTable
         ACTIVITY_TABLE: !Ref ActivityTable
         POLLY_BUCKET: !Ref PollyBucket
+        POLLY_VOICE_ID: "Seoyeon"
+        POLLY_ENGINE: "generative"
+        POLLY_FALLBACK_ENGINES: "neural,standard"
         ANALYSIS_QUEUE_URL: !Ref AnalysisQueue
         SNS_TOPIC_ARN: !Ref GuardianAlertsTopic
         USER_POOL_ID: !Ref UserPool
         USER_POOL_CLIENT_ID: !Ref UserPoolClient
-        BEDROCK_MODEL_ID: "arn:aws:bedrock:ap-northeast-2:727847798739:inference-profile/apac.anthropic.claude-sonnet-4-20250514-v1:0"
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        BEDROCK_FALLBACK_MODEL_ID: "apac.amazon.nova-lite-v1:0"
         MOCK_LLM: "false"
         NOTIFY_SCORE_THRESHOLD: "6"
         SELF_ASSESSMENT_NOTIFY_THRESHOLD: "6"
+        PROMPT_VERSION: "elder-companion-v3"
+        KDSQ_MIN_TURNS_BEFORE_FIRST: "5"
+        KDSQ_TURN_INTERVAL: "8"
+        KDSQ_DAILY_LIMIT: "3"
+        TRANSCRIBE_LANGUAGE_CODE: "ko-KR"
+        TRANSCRIBE_POLL_SECONDS: "22"
+        TRANSCRIBE_MAX_AUDIO_BYTES: "6291456"
+        TRANSCRIBE_STREAM_SAMPLE_RATE: "16000"
+        TRANSCRIBE_STREAM_URL_EXPIRES: "300"
+        METRICS_NAMESPACE: "ElderVoiceCompanion"
+        STAGE: !Ref Stage
         LOG_LEVEL: "INFO"
 
 Parameters:
   Stage:
     Type: String
     Default: dev
+  BedrockModelId:
+    Type: String
+    Default: "apac.amazon.nova-lite-v1:0"
+    Description: Bedrock model ID or inference profile ID used by Lambda runtime.
+  BedrockInvokeResourceArn:
+    Type: String
+    Default: "*"
+    Description: IAM resource ARN for bedrock:InvokeModel. Set to a model or inference-profile ARN for stricter production least privilege.
+  OpsAlertEmail:
+    Type: String
+    Default: ""
+    Description: Optional email address for operational alarms and budget notifications.
+  MonthlyBudgetLimit:
+    Type: Number
+    Default: 20
+    Description: Optional monthly AWS cost budget in USD, created only when OpsAlertEmail is set.
+
+Conditions:
+  HasOpsAlertEmail: !Not [!Equals [!Ref OpsAlertEmail, ""]]
 
 Resources:
   Api:
@@ -41,6 +75,10 @@ Resources:
         AllowMethods: "'OPTIONS,POST,GET'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
@@ -167,18 +205,62 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "elder-voice-companion-polly-${Stage}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpirePollyAudio
+            Prefix: polly/
+            Status: Enabled
+            ExpirationInDays: 7
+          - Id: ExpireTranscribeInput
+            Prefix: transcribe-input/
+            Status: Enabled
+            ExpirationInDays: 1
+          - Id: ExpireTranscribeOutput
+            Prefix: transcribe-output/
+            Status: Enabled
+            ExpirationInDays: 1
       VersioningConfiguration:
         Status: Suspended
+
+  AnalysisDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
 
   AnalysisQueue:
     Type: AWS::SQS::Queue
     Properties:
       VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AnalysisDeadLetterQueue.Arn
+        maxReceiveCount: 3
 
   GuardianAlertsTopic:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: "Elder Voice Companion Alerts"
+
+  OpsAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Elder Voice Companion Ops Alerts"
+
+  OpsAlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasOpsAlertEmail
+    Properties:
+      TopicArn: !Ref OpsAlertsTopic
+      Protocol: email
+      Endpoint: !Ref OpsAlertEmail
 
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -226,6 +308,8 @@ Resources:
     Properties:
       CodeUri: ../backend
       Handler: lambdas.start.handler
+      Timeout: 25
+      MemorySize: 1024
       Events:
         Start:
           Type: Api
@@ -233,16 +317,29 @@ Resources:
             RestApiId: !Ref Api
             Path: /start
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
+        - S3WritePolicy:
+            BucketName: !Ref PollyBucket
+        - S3ReadPolicy:
+            BucketName: !Ref PollyBucket
         - Statement:
             - Effect: Allow
               Action:
-                - sns:Subscribe
-              Resource: !Ref GuardianAlertsTopic
+                - polly:SynthesizeSpeech
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: "ElderVoiceCompanion"
 
   TurnFunction:
     Type: AWS::Serverless::Function
@@ -258,6 +355,8 @@ Resources:
             RestApiId: !Ref Api
             Path: /turn
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TurnsTable
@@ -265,6 +364,8 @@ Resources:
             TableName: !Ref KdsqResponsesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
         - S3WritePolicy:
             BucketName: !Ref PollyBucket
         - S3ReadPolicy:
@@ -277,12 +378,90 @@ Resources:
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
+              Resource: !Ref BedrockInvokeResourceArn
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: "ElderVoiceCompanion"
+
+  TranscribeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.transcribe.handler
+      Timeout: 28
+      MemorySize: 1024
+      Events:
+        Transcribe:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /transcribe
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource:
+                - !Sub "${PollyBucket.Arn}/transcribe-input/*"
+                - !Sub "${PollyBucket.Arn}/transcribe-output/*"
+            - Effect: Allow
+              Action:
+                - s3:GetBucketLocation
+              Resource: !GetAtt PollyBucket.Arn
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+              Resource: !Sub "arn:${AWS::Partition}:transcribe:${AWS::Region}:${AWS::AccountId}:transcription-job/elder-voice-*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: "ElderVoiceCompanion"
+
+  TranscribeStreamUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambdas.transcribe_stream_url.handler
+      Timeout: 10
+      MemorySize: 512
+      Events:
+        TranscribeStreamUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /transcribe/stream-url
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - transcribe:StartStreamTranscriptionWebSocket
               Resource: "*"
             - Effect: Allow
               Action:
-                - aws-marketplace:ViewSubscriptions
-                - aws-marketplace:Subscribe
+                - cloudwatch:PutMetricData
               Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: "ElderVoiceCompanion"
 
   SessionEndFunction:
     Type: AWS::Serverless::Function
@@ -296,9 +475,13 @@ Resources:
             RestApiId: !Ref Api
             Path: /session/end
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt AnalysisQueue.QueueName
 
@@ -327,9 +510,14 @@ Resources:
               Resource: !GetAtt UserPool.Arn
             - Effect: Allow
               Action:
-                - sns:Subscribe
                 - sns:CreateTopic
               Resource: "*"
+            - Effect: Allow
+              Action:
+                - sns:Subscribe
+              Resource:
+                - !Ref GuardianAlertsTopic
+                - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:elder-voice-companion-guardian-*"
 
   AuthLoginFunction:
     Type: AWS::Serverless::Function
@@ -368,6 +556,8 @@ Resources:
             RestApiId: !Ref Api
             Path: /auth/guardian/verify
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref UsersTable
@@ -384,6 +574,8 @@ Resources:
             RestApiId: !Ref Api
             Path: /self-assessment
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref SelfAssessmentsTable
@@ -393,7 +585,9 @@ Resources:
             - Effect: Allow
               Action:
                 - sns:Publish
-              Resource: "*"
+              Resource:
+                - !Ref GuardianAlertsTopic
+                - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:elder-voice-companion-guardian-*"
 
   ActivityLogFunction:
     Type: AWS::Serverless::Function
@@ -407,9 +601,13 @@ Resources:
             RestApiId: !Ref Api
             Path: /activity/log
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ActivityTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
 
   ActivityWeeklyFunction:
     Type: AWS::Serverless::Function
@@ -423,6 +621,8 @@ Resources:
             RestApiId: !Ref Api
             Path: /activity/weekly
             Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref ActivityTable
@@ -430,11 +630,20 @@ Resources:
             TableName: !Ref SelfAssessmentsTable
         - DynamoDBReadPolicy:
             TableName: !Ref KdsqResponsesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
         - Statement:
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
+              Resource: !Ref BedrockInvokeResourceArn
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
               Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: "ElderVoiceCompanion"
 
   SessionsListFunction:
     Type: AWS::Serverless::Function
@@ -448,9 +657,13 @@ Resources:
             RestApiId: !Ref Api
             Path: /sessions
             Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
 
   SessionGetFunction:
     Type: AWS::Serverless::Function
@@ -464,11 +677,15 @@ Resources:
             RestApiId: !Ref Api
             Path: /sessions/{session_id}
             Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref SessionsTable
         - DynamoDBReadPolicy:
             TableName: !Ref TurnsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
 
   AnalysisFunction:
     Type: AWS::Serverless::Function
@@ -494,24 +711,266 @@ Resources:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt GuardianAlertsTopic.TopicName
         - Statement:
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
-              Resource: "*"
-            - Effect: Allow
-              Action:
-                - aws-marketplace:ViewSubscriptions
-                - aws-marketplace:Subscribe
-              Resource: "*"
+              Resource: !Ref BedrockInvokeResourceArn
             - Effect: Allow
               Action:
                 - sns:Publish
+              Resource:
+                - !Ref GuardianAlertsTopic
+                - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:elder-voice-companion-guardian-*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
               Resource: "*"
+              Condition:
+                StringEquals:
+                  cloudwatch:namespace: "ElderVoiceCompanion"
+
+  TurnFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Turn Lambda error count is above zero."
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TurnFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  TurnFunctionDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Turn Lambda average duration is close to timeout."
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TurnFunction
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 20000
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  TranscribeFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Transcribe Lambda error count is above zero."
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TranscribeFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  TranscribeStreamUrlFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Transcribe streaming URL Lambda error count is above zero."
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TranscribeStreamUrlFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  AnalysisDlqVisibleMessagesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Analysis DLQ has messages requiring manual review."
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt AnalysisDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  ModelFallbackAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Bedrock model fallback was used."
+      Namespace: ElderVoiceCompanion
+      MetricName: ModelFallback
+      Dimensions:
+        - Name: Stage
+          Value: !Ref Stage
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  PollyFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Polly synthesis failed after fallback attempts."
+      Namespace: ElderVoiceCompanion
+      MetricName: PollySynthesisFailure
+      Dimensions:
+        - Name: Stage
+          Value: !Ref Stage
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  TranscribeFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "AWS Transcribe conversion failed or timed out."
+      Namespace: ElderVoiceCompanion
+      MetricName: TranscribeFailure
+      Dimensions:
+        - Name: Stage
+          Value: !Ref Stage
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
+  ElderVoiceDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "elder-voice-companion-${Stage}"
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "region": "${AWS::Region}",
+                "title": "Conversation Lambda Errors and Duration",
+                "metrics": [
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${TurnFunction}", { "stat": "Sum" } ],
+                  [ ".", "Duration", ".", ".", { "stat": "Average", "yAxis": "right" } ],
+                  [ ".", "Errors", ".", "${TranscribeFunction}", { "stat": "Sum" } ],
+                  [ ".", "Duration", ".", ".", { "stat": "Average", "yAxis": "right" } ],
+                  [ ".", "Errors", ".", "${TranscribeStreamUrlFunction}", { "stat": "Sum" } ]
+                ],
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "region": "${AWS::Region}",
+                "title": "AI and Voice Fallbacks",
+                "metrics": [
+                  [ "ElderVoiceCompanion", "ModelFallback", "Stage", "${Stage}", { "stat": "Sum" } ],
+                  [ ".", "BedrockInvokeError", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "PollySynthesisFailure", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "PollyFallbackEngine", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "TranscribeFailure", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "TranscribeSuccess", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "TranscribeStreamUrlIssued", ".", ".", { "stat": "Sum" } ]
+                ],
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "region": "${AWS::Region}",
+                "title": "Analysis Queue and DLQ",
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${AnalysisQueue.QueueName}", { "stat": "Sum" } ],
+                  [ ".", ".", ".", "${AnalysisDeadLetterQueue.QueueName}", { "stat": "Sum" } ]
+                ],
+                "period": 300
+              }
+            }
+          ]
+        }
+
+  MonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    Condition: HasOpsAlertEmail
+    Properties:
+      Budget:
+        BudgetName: !Sub "elder-voice-companion-${Stage}-monthly"
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetLimit
+          Unit: USD
+        TimeUnit: MONTHLY
+        BudgetType: COST
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref OpsAlertEmail
 
 Outputs:
   ApiUrl:
     Description: API endpoint
     Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+  UserPoolId:
+    Description: Cognito user pool id
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Cognito user pool app client id
+    Value: !Ref UserPoolClient
+  CloudWatchDashboard:
+    Description: CloudWatch operational dashboard
+    Value: !Sub "elder-voice-companion-${Stage}"

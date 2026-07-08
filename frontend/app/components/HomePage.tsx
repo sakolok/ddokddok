@@ -157,7 +157,7 @@ const diagnosisQuestions: DiagnosisQuestion[] = [
 
 export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onSettings }: HomePageProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [fontSize, setFontSize] = useState<'normal' | 'large'>('large');
+  const [fontSize] = useState<'normal' | 'large'>('large');
   const [showDiagnosis, setShowDiagnosis] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
@@ -197,7 +197,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
     if (currentQuestion < diagnosisQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
-      // 진단 완료 - 결과를 ActivityContext에 저장
+      // 자가 점검 완료 - 결과를 ActivityContext에 저장
       const totalScore = newAnswers.reduce((sum, answer) => sum + answer, 0);
       addDiagnosisResult(totalScore, newAnswers);
       if (userInfo.userId) {
@@ -230,7 +230,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
     if (score <= 5) {
       return {
         emoji: "🧑🏻‍💼",
-        message: "인지 기능이 매우 좋습니다! 젊은 마음으로 활기차게 생활하고 계시네요.",
+        message: "자가 점검 결과가 안정적으로 보입니다. 활기찬 생활을 이어가고 계시네요.",
         recommendations: [
           "현재 상태를 유지하세요",
           "새로운 취미 활동 도전",
@@ -244,7 +244,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
     } else if (score <= 16) {
       return {
         emoji: "👴🏻",
-        message: "나이에 맞는 자연스러운 변화입니다. 건강한 고령자의 모습이에요.",
+        message: "일상에서 자연스러운 변화가 있을 수 있습니다. 건강한 생활 리듬을 유지해보세요.",
         recommendations: [
           "규칙적인 두뇌 훈련",
           "주 3회 이상 운동",
@@ -258,7 +258,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
     } else {
       return {
         emoji: "👵🏻",
-        message: "일부 변화가 관찰됩니다. 더 많은 관심과 케어가 필요해 보여요.",
+        message: "일부 변화 신호가 관찰됩니다. 보호자와 함께 생활 패턴을 확인해보세요.",
         recommendations: [
           "전문의 상담 권장",
           "가족과 함께 활동",
@@ -269,14 +269,6 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
         borderColor: "border-orange-200",
         textColor: "text-orange-700"
       };
-    }
-  };
-
-  const getFontSizeLabel = () => {
-    switch(fontSize) {
-      case 'normal': return '';
-      case 'large': return '크게';
-      default: return '';
     }
   };
 
@@ -410,13 +402,13 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
               </div>
               <div className="flex-1">
                 <h3 className={`${fontSize === 'large' ? 'text-2xl' : 'text-xl'} font-bold mb-2`}>
-                  자가진단
+                  자가 점검
                 </h3>
                 <p className={`${fontSizeClasses[fontSize]} opacity-90 mb-1`}>
                   15개 간단한 질문으로
                 </p>
                 <p className={`${fontSizeClasses[fontSize]} opacity-90`}>
-                  인지 상태를 확인해보세요
+                  생활 변화 신호를 확인해보세요
                 </p>
               </div>
             </div>
@@ -443,17 +435,17 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
             </div>
           </div>
 
-        {/* 자가진단 모달 */}
+        {/* 자가 점검 모달 */}
         {showDiagnosis && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-[562px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 h-[95vh] max-h-[900px] flex flex-col">
               <div className="flex-1 overflow-y-auto p-8">
                 {!showResult ? (
                   <>
-                    {/* 진단 진행 중 */}
+                    {/* 자가 점검 진행 중 */}
                     <div className="mb-6">
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-2xl font-bold text-gray-800">자가진단</h3>
+                        <h3 className="text-2xl font-bold text-gray-800">자가 점검</h3>
                         <button
                           onClick={resetDiagnosis}
                           className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
@@ -493,7 +485,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
                   </>
                 ) : (
                   <>
-                    {/* 진단 결과 */}
+                    {/* 자가 점검 결과 */}
                     <div className="flex flex-col h-full">
                       <div className="flex-[0.8]"></div>
                       <div className="text-center mb-6 flex flex-col items-center justify-center">
@@ -524,7 +516,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
                           onClick={restartDiagnosis}
                           className="flex-1 py-4 px-6 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-all text-lg"
                         >
-                          다시 진단
+                          다시 점검
                         </button>
                         <button
                           onClick={resetDiagnosis}
@@ -550,7 +542,7 @@ export default function HomePage({ userInfo, onBack, onChatbot, onBrainGame, onS
 
           {/* 오늘의 건강 정보 섹션 */}
           <div className="mt-4">
-            <h3 className={`${fontSize === 'large' ? 'text-2xl' : 'text-xl'} font-semibold text-gray-800 mb-4 px-2`}>치매 예방 건강 정보</h3>
+            <h3 className={`${fontSize === 'large' ? 'text-2xl' : 'text-xl'} font-semibold text-gray-800 mb-4 px-2`}>뇌 건강 생활 정보</h3>
             <div className="space-y-4 max-h-48 overflow-y-auto">
               {/* 기사 1 - 치매 예방 운동 */}
               <a 

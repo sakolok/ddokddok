@@ -15,6 +15,7 @@ import { MemoryCardGame } from '@/app/components/MemoryCardGame';
 import { NumberSequenceGame } from '@/app/components/NumberSequenceGame';
 import { MathGame } from '@/app/components/MathGame';
 import { ColorGame } from '@/app/components/ColorGame';
+import { clearAuthToken } from '@/lib/api';
 
 export type GameType = 'menu' | 'memory' | 'sequence' | 'math' | 'color' | 'kiro';
 type PageType = 'auth' | 'roleSelect' | 'home' | 'guardian' | 'settings' | 'chatbot' | 'braingame' | 'dashboard';
@@ -61,6 +62,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    clearAuthToken();
     setUserInfo(null);
     // setUserRole(null);
     setCurrentPage('auth');

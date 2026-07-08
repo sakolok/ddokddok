@@ -9,25 +9,44 @@ interface GuardianDashboardProps {
   onLogout: () => void;
 }
 
-// interface ActivityData {
-//   date: string;
-//   chatSessions: number;
-//   gamesSessions: number;
-//   totalTime: number; // 분 단위
-//   diagnosisScore?: number;
-// }
+interface DailyActivity {
+  date: string;
+  chatSessions: number;
+  gamesSessions: number;
+  totalTime: number;
+  diagnosisScore?: number;
+}
 
-// interface GameStats {
-//   cardMatching: { played: number; avgScore: number; bestScore: number };
-//   numberSequence: { played: number; avgScore: number; bestScore: number };
-//   mathGame: { played: number; avgScore: number; bestScore: number };
-//   colorGame: { played: number; avgScore: number; bestScore: number };
-//   kiroPuzzle: { played: number; avgScore: number; bestScore: number };
-// }
+interface KdsqConcernExample {
+  question: string;
+  answer: string;
+}
+
+interface KdsqResponse {
+  question?: string;
+  answer?: string;
+}
+
+interface DiagnosisPoint {
+  date: Date | string;
+  score: number;
+}
+
+interface NormalizedStats {
+  totalTime: number;
+  avgDailyTime: number;
+  totalChatSessions: number;
+  totalGameSessions: number;
+  gameStats: Record<string, { played: number; avgScore: number; bestScore: number }>;
+  dailyActivities: DailyActivity[];
+  latestDiagnosis?: DiagnosisPoint;
+  recentDiagnosisResults?: DiagnosisPoint[];
+  kdsqConcernExamples: KdsqConcernExample[];
+  kdsqResponses: KdsqResponse[];
+}
 
 export default function GuardianDashboard({ userInfo, onBack, onLogout }: GuardianDashboardProps) {
   const [fontSize] = useState<'normal' | 'large'>('large');
-  const [selectedPeriod] = useState<'week' | 'month' | 'quarter'>('week');
   const [showKdsqDetails, setShowKdsqDetails] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sessions, setSessions] = useState<any[]>([]);
@@ -130,7 +149,7 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
     return `${month}/${day}(${dayName})`;
   };
 
-  const stats = weeklyStats
+  const stats: NormalizedStats = weeklyStats
     ? {
         totalTime: weeklyStats.total_time_min ?? weeklyStats.totalTime ?? 0,
         avgDailyTime: weeklyStats.avg_daily_time_min ?? weeklyStats.avgDailyTime ?? 0,
@@ -143,17 +162,35 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
         kdsqConcernExamples: weeklyStats.kdsq_concern_examples ?? [],
         kdsqResponses: weeklyStats.kdsq_responses ?? []
       }
-    : getWeeklyStats();
+    : {
+        ...getWeeklyStats(),
+        kdsqConcernExamples: [],
+        kdsqResponses: []
+      };
   const healthStatus = getHealthStatus();
-  const latestSession = sessions[0];
+  const recentSessionCount = sessions.length;
   const diagnosisTrend = stats.recentDiagnosisResults
-    ? stats.recentDiagnosisResults.map((r: any) => ({
+    ? stats.recentDiagnosisResults.map((r) => ({
         date: r.date instanceof Date ? r.date : new Date(r.date),
         score: r.score
       }))
     : (stats.dailyActivities || [])
-        .filter((d: any) => d.diagnosisScore !== undefined)
-        .map((d: any) => ({ date: new Date(d.date), score: d.diagnosisScore }));
+        .filter((d) => d.diagnosisScore !== undefined)
+        .map((d) => ({ date: new Date(d.date), score: d.diagnosisScore ?? 0 }));
+
+  const diagnosisRanges = [
+    { label: '우수', min: 0, max: 5, color: 'bg-green-500', stroke: '#22c55e' },
+    { label: '양호', min: 6, max: 11, color: 'bg-emerald-500', stroke: '#10b981' },
+    { label: '경미', min: 12, max: 18, color: 'bg-yellow-500', stroke: '#eab308' },
+    { label: '주의', min: 19, max: 25, color: 'bg-orange-500', stroke: '#f97316' },
+    { label: '심각', min: 26, max: 30, color: 'bg-red-500', stroke: '#ef4444' }
+  ];
+
+  const getDiagnosisColor = (score?: number) => {
+    if (score === undefined || score === null) return { color: 'bg-gray-300', stroke: '#d1d5db' };
+    const found = diagnosisRanges.find((r) => score >= r.min && score <= r.max);
+    return found || { color: 'bg-gray-300', stroke: '#d1d5db' };
+  };
 
   return (
     <Layout isGuardianMode={true}>
@@ -216,7 +253,7 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
           <div className="space-y-4">
             {healthStatus && (
               <div className={`${healthStatus.bgColor} ${healthStatus.borderColor} border rounded-lg p-6`}>
-                <div className="text-sm text-gray-600 mb-2">현재 인지 상태</div>
+                <div className="text-sm text-gray-600 mb-2">현재 관찰 신호</div>
                 <div className={`text-3xl font-extrabold ${healthStatus.color}`}>
                   {healthStatus.status}
                 </div>
@@ -225,6 +262,9 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
                     KDSQ 우려 응답 수: {weeklyStats.kdsq_score_total}
                   </div>
                 )}
+                <p className="text-xs text-gray-600 mt-3">
+                  이 결과는 의료 진단이 아닌 자가 점검 기반 관찰 정보입니다.
+                </p>
               </div>
             )}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -247,14 +287,14 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
               {showKdsqDetails && (
                 <div className="mt-4 space-y-3 text-sm text-gray-700">
                   {stats.kdsqConcernExamples && stats.kdsqConcernExamples.length > 0 ? (
-                    stats.kdsqConcernExamples.map((item: any, idx: number) => (
+                    stats.kdsqConcernExamples.map((item, idx) => (
                       <div key={idx} className="bg-gray-50 rounded-lg p-3">
                         <div className="font-medium">Q. {item.question}</div>
                         <div className="mt-1">A. {item.answer}</div>
                       </div>
                     ))
                   ) : (
-                    (stats.kdsqResponses || []).slice(0, 3).map((item: any, idx: number) => (
+                    (stats.kdsqResponses || []).slice(0, 3).map((item, idx) => (
                       <div key={idx} className="bg-gray-50 rounded-lg p-3">
                         <div className="font-medium">Q. {item.question || '질문'}</div>
                         <div className="mt-1">A. {item.answer || '응답 없음'}</div>
@@ -271,142 +311,70 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
             
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
               <h4 className="font-medium text-gray-800 mb-4 flex items-center gap-2">
-                📋 자가진단 주간 추이
+                📋 자가 점검 주간 추이
               </h4>
               {diagnosisTrend.length > 0 ? (
                 <div className="space-y-4">
-                  {/* 그래프 영역 */}
-                  <div className="relative h-40 bg-white rounded-lg border border-purple-200 p-4">
-                    {/* 막대 그래프 */}
-                    <div className="h-full flex items-end justify-between px-4">
-                      {Array.from({ length: 7 }, (_, index) => {
-                        const date = new Date();
-                        date.setDate(date.getDate() - (6 - index));
-                        const dateStr = date.toISOString().split('T')[0];
-                        
-                        // 해당 날짜의 진단 결과 찾기
-                        const diagnosisResult = diagnosisTrend.find((result: any) =>
-                          result.date.toISOString().split('T')[0] === dateStr
-                        );
-                        
-                        const score = diagnosisResult?.score || 0;
-                        const hasData = !!diagnosisResult;
-                        
-                        // 높이를 30점 기준으로 계산 (최소 높이 8px)
-                        const barHeight = hasData ? Math.max((score / 30) * 100, 3) : 0;
-                        
-                        // 점수에 따른 색상 결정 (더 세밀한 그라데이션)
-                        let barColor = 'bg-gray-200';
-                        let shadowColor = 'shadow-gray-200';
-                        
-                        if (hasData) {
-                          if (score <= 5) {
-                            barColor = 'bg-gradient-to-t from-green-500 to-green-400';
-                            shadowColor = 'shadow-green-300';
-                          } else if (score <= 10) {
-                            barColor = 'bg-gradient-to-t from-emerald-500 to-emerald-400';
-                            shadowColor = 'shadow-emerald-300';
-                          } else if (score <= 16) {
-                            barColor = 'bg-gradient-to-t from-blue-500 to-blue-400';
-                            shadowColor = 'shadow-blue-300';
-                          } else if (score <= 20) {
-                            barColor = 'bg-gradient-to-t from-yellow-500 to-yellow-400';
-                            shadowColor = 'shadow-yellow-300';
-                          } else if (score <= 25) {
-                            barColor = 'bg-gradient-to-t from-orange-500 to-orange-400';
-                            shadowColor = 'shadow-orange-300';
-                          } else {
-                            barColor = 'bg-gradient-to-t from-red-500 to-red-400';
-                            shadowColor = 'shadow-red-300';
-                          }
-                        }
-                        
-                        return (
-                          <div key={dateStr} className="flex flex-col items-center flex-1 relative">
-                            {/* 막대 */}
-                            <div className="relative flex items-end justify-center w-full h-full">
-                              {hasData && (
-                                <>
-                                  {/* 점수 표시 */}
-                                  <div className="absolute -top-8 text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded-md shadow-sm border z-10">
-                                    {score}점
-                                  </div>
-                                  {/* 막대 */}
-                                  <div 
-                                    className={`w-8 rounded-t-lg transition-all duration-500 ease-out ${barColor} ${shadowColor} shadow-lg border border-white/20`}
-                                    style={{ 
-                                      height: `${barHeight}%`,
-                                      minHeight: hasData ? '8px' : '0px'
-                                    }}
-                                  >
-                                    {/* 막대 내부 하이라이트 효과 */}
-                                    <div className="w-full h-full rounded-t-lg bg-gradient-to-r from-white/20 to-transparent"></div>
-                                  </div>
-                                </>
-                              )}
-                              {!hasData && (
-                                <div className="w-8 h-2 bg-gray-200 rounded-full opacity-50"></div>
-                              )}
-                            </div>
-                            
-                            {/* 날짜 표시 */}
-                            <div className="text-xs text-gray-600 mt-3 text-center">
-                              <div className="font-medium">
-                                {date.getMonth() + 1}/{date.getDate()}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {['일', '월', '화', '수', '목', '금', '토'][date.getDay()]}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {/* Line chart */}
+                  <div className="bg-white rounded-lg border border-purple-200 p-4">
+                    <div className="relative h-40">
+                      <svg viewBox="0 0 700 160" className="w-full h-full">
+                        <polyline
+                          fill="none"
+                          stroke="#7c3aed"
+                          strokeWidth="3"
+                          points={(stats.dailyActivities || []).map((day, idx) => {
+                            const score = day.diagnosisScore ?? 0;
+                            const x = 40 + idx * 90;
+                            const y = 140 - (score / 30) * 120;
+                            return `${x},${y}`;
+                          }).join(' ')}
+                        />
+                        {(stats.dailyActivities || []).map((day, idx) => {
+                          const score = day.diagnosisScore;
+                          const x = 40 + idx * 90;
+                          const y = score !== undefined ? 140 - (score / 30) * 120 : 140;
+                          const color = getDiagnosisColor(score).stroke;
+                          return (
+                            <circle key={day.date} cx={x} cy={y} r="6" fill={color} stroke="#fff" strokeWidth="2" />
+                          );
+                        })}
+                      </svg>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600 mt-3">
+                      {(stats.dailyActivities || []).map((day) => (
+                        <div key={day.date} className="w-full text-center">
+                          {formatDate(day.date)}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
+
                   {/* 범례 */}
-                  <div className="flex justify-center gap-3 text-xs flex-wrap">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-gradient-to-t from-green-500 to-green-400 rounded"></div>
-                      <span className="text-gray-600">우수 (0-5점)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-gradient-to-t from-emerald-500 to-emerald-400 rounded"></div>
-                      <span className="text-gray-600">매우양호 (6-10점)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-gradient-to-t from-blue-500 to-blue-400 rounded"></div>
-                      <span className="text-gray-600">양호 (11-16점)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-gradient-to-t from-yellow-500 to-yellow-400 rounded"></div>
-                      <span className="text-gray-600">경미 (17-20점)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-gradient-to-t from-orange-500 to-orange-400 rounded"></div>
-                      <span className="text-gray-600">주의 (21-25점)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-gradient-to-t from-red-500 to-red-400 rounded"></div>
-                      <span className="text-gray-600">심각 (26-30점)</span>
-                    </div>
+                  <div className="flex flex-wrap gap-2 justify-center text-xs text-gray-600">
+                    {diagnosisRanges.map((r) => (
+                      <div key={r.label} className="flex items-center gap-1">
+                        <div className={`w-3 h-3 ${r.color} rounded-full`}></div>
+                        <span>{r.label} ({r.min}-{r.max})</span>
+                      </div>
+                    ))}
                   </div>
                   
                   {/* 최근 진단 정보 */}
-                  {weeklyStats?.latestDiagnosis && (
+                  {stats.latestDiagnosis && (
                     <div className="mt-3 pt-3 border-t border-purple-200">
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">최근 진단:</span>
+                        <span className="text-gray-600">최근 점검:</span>
                         <span className="font-medium text-gray-800">
-                          {weeklyStats.latestDiagnosis.date.toLocaleDateString('ko-KR', {
+                          {(stats.latestDiagnosis.date instanceof Date ? stats.latestDiagnosis.date : new Date(stats.latestDiagnosis.date)).toLocaleDateString('ko-KR', {
                             month: 'short',
                             day: 'numeric'
-                          })} - {weeklyStats.latestDiagnosis.score}점
+                          })} - {stats.latestDiagnosis.score}점
                         </span>
                       </div>
                       <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-                        15개 문항에 대한 응답을 종합하여 산출된 점수입니다. 
-                        정기적인 자가진단을 통해 인지 기능 변화를 모니터링하고 있습니다.
+                        15개 문항에 대한 응답을 종합하여 산출된 점수입니다.
+                        정기적인 자가 점검을 통해 생활 변화 신호를 모니터링합니다.
                       </p>
                     </div>
                   )}
@@ -414,8 +382,8 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-4xl mb-2">📊</div>
-                  <p className="text-sm">아직 자가진단 결과가 없습니다.</p>
-                  <p className="text-xs text-gray-400 mt-1">자가진단을 완료하면 주간 추이를 확인할 수 있습니다.</p>
+                  <p className="text-sm">아직 자가 점검 결과가 없습니다.</p>
+                  <p className="text-xs text-gray-400 mt-1">자가 점검을 완료하면 주간 추이를 확인할 수 있습니다.</p>
                 </div>
               )}
             </div>
@@ -452,7 +420,7 @@ export default function GuardianDashboard({ userInfo, onBack, onLogout }: Guardi
               <span className="text-2xl">💬</span>
             </div>
             <div className="text-2xl font-bold">{stats.totalChatSessions}회</div>
-            <div className="text-sm opacity-90">7일간 총 세션</div>
+            <div className="text-sm opacity-90">7일간 총 세션 · 누적 {recentSessionCount}회</div>
           </div>
 
           {/* 게임 세션 */}

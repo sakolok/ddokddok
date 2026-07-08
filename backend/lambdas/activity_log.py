@@ -3,6 +3,8 @@ import os
 from datetime import datetime, timezone
 import boto3
 from shared.response import json_response
+from shared.utils import ttl_epoch
+from shared.auth import AuthError, require_user_access
 
 _dynamodb = boto3.resource("dynamodb")
 TABLE_NAME = os.getenv("ACTIVITY_TABLE")
@@ -25,6 +27,10 @@ def handler(event, _context):
 
     if not user_id or activity_type not in {"chat", "game"}:
         return json_response(400, {"message": "missing_required_fields"})
+    try:
+        require_user_access(event, user_id)
+    except AuthError:
+        return json_response(403, {"message": "forbidden"})
 
     if not end_ts:
         end_ts = datetime.now(timezone.utc).isoformat()
@@ -35,6 +41,7 @@ def handler(event, _context):
         "type": activity_type,
         "start_ts": start_ts,
         "end_ts": end_ts,
+        "expires_at": ttl_epoch(365),
     }
     if duration_min is not None:
         item["duration_min"] = int(duration_min)

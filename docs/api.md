@@ -2,11 +2,12 @@
 
 Base URL (dev)
 ```
-https://8fvbrb5ai3.execute-api.ap-northeast-2.amazonaws.com/dev
+https://vwjc2p1w4e.execute-api.ap-northeast-2.amazonaws.com/dev
 ```
 
 Common
 - Content-Type: application/json
+- `/auth/signup`, `/auth/login` 외 사용자 데이터 API는 `Authorization: Bearer <id_token>` 필요
 - 모든 타임스탬프는 ISO-8601 (UTC)
 - CORS 활성화
 
@@ -123,12 +124,87 @@ Response 200
 ```json
 {
   "user_id": "user_...",
-  "session_id": "session_..."
+  "session_id": "session_...",
+  "welcome_text": "안녕하세요 홍길동님! 오늘 기분은 어떠신가요? 편하게 이야기해주세요.",
+  "audio": {
+    "s3_key": "polly/....mp3",
+    "url": "https://...presigned-url..."
+  }
 }
 ```
 
 Errors
 - 400: {"message":"invalid_json"} | {"message":"missing_required_fields"}
+
+---
+
+## POST /transcribe
+브라우저 Web Speech API가 실패하거나 지원되지 않는 경우, 녹음 파일을 AWS Transcribe로 변환합니다.
+
+Request
+```json
+{
+  "user_id": "user_...",
+  "session_id": "session_...",
+  "content_type": "audio/webm",
+  "audio_base64": "base64-encoded-audio"
+}
+```
+
+Response 200
+```json
+{
+  "transcript": "오늘은 산책을 다녀왔어요.",
+  "job_name": "elder-voice-...",
+  "language_code": "ko-KR"
+}
+```
+
+Notes
+- `/transcribe`는 Cognito 인증이 필요합니다.
+- 입력 음성은 S3 `transcribe-input/`, 결과 JSON은 `transcribe-output/`에 저장되고 Lifecycle로 1일 후 만료됩니다.
+- API Gateway 응답 시간 한계 때문에 짧은 음성 녹음에 맞춘 batch Transcribe fallback입니다. 장시간/실시간 대화는 Transcribe Streaming 구조가 필요합니다.
+
+Errors
+- 400: {"message":"invalid_json"} | {"message":"missing_required_fields"} | {"message":"invalid_audio_base64"}
+- 413: {"message":"audio_too_large"}
+- 415: {"message":"unsupported_audio_type"}
+- 502: {"message":"transcribe_failed"}
+- 504: {"message":"transcribe_timeout"}
+
+---
+
+## POST /transcribe/stream-url
+실시간 음성 인식을 위해 AWS Transcribe Streaming WebSocket presigned URL을 발급합니다.
+
+Request
+```json
+{
+  "user_id": "user_...",
+  "session_id": "session_..."
+}
+```
+
+Response 200
+```json
+{
+  "url": "wss://transcribestreaming.ap-northeast-2.amazonaws.com:8443/stream-transcription-websocket?...",
+  "language_code": "ko-KR",
+  "media_encoding": "pcm",
+  "sample_rate": 16000,
+  "expires_in": 300
+}
+```
+
+Notes
+- `/transcribe/stream-url`은 Cognito 인증이 필요합니다.
+- 브라우저는 이 URL로 Transcribe Streaming WebSocket에 직접 연결하고, 16kHz PCM 오디오 이벤트를 전송합니다.
+- Lambda는 URL 발급만 담당합니다. 오디오 chunk를 Lambda/API Gateway request-response로 보내지 않습니다.
+- URL은 짧은 만료 시간을 가지며, 발급 Lambda 역할은 `transcribe:StartStreamTranscriptionWebSocket`만 허용합니다.
+
+Errors
+- 400: {"message":"invalid_json"} | {"message":"missing_required_fields"}
+- 500: {"message":"transcribe_stream_url_error"}
 
 ---
 

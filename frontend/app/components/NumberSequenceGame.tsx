@@ -1,48 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import GameWrapper from './GameWrapper';
 import { saveGameResult } from '@/lib/gameStats';
+import { useActivity } from '@/app/contexts/ActivityContext';
 
 interface NumberSequenceGameProps {
   onBack: () => void;
-  userInfo: { name: string; id: string };
+  userInfo: { name: string; id: string; userId?: string };
 }
 
 type GameState = 'ready' | 'showing' | 'input' | 'result';
+
+const SEQUENCE_LENGTH = 3;
+const POINTS_PER_NUMBER = 5;
 
 export function NumberSequenceGame({ onBack, userInfo }: NumberSequenceGameProps) {
   const [sequence, setSequence] = useState<number[]>([]);
   const [userInput, setUserInput] = useState<number[]>([]);
   const [gameState, setGameState] = useState<GameState>('ready');
-  const [level] = useState(3);
   const [score, setScore] = useState(0);
   const [showingIndex, setShowingIndex] = useState(0);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const { startSession, endSession } = useActivity();
+  const currentSessionRef = useRef<string | null>(null);
 
-  const generateSequence = (length: number) => {
-    const newSequence = Array.from({ length }, () => Math.floor(Math.random() * 9) + 1);
+  const startGame = useCallback(() => {
+    currentSessionRef.current = startSession('game', 'sequence');
+    const newSequence = Array.from({ length: SEQUENCE_LENGTH }, () => Math.floor(Math.random() * 9) + 1);
     setSequence(newSequence);
-  };
-
-  const startGame = () => {
-    generateSequence(3);
     setUserInput([]);
     setIsCorrect(null);
-    setGameState('showing');
     setShowingIndex(0);
-  };
+    setGameState('showing');
+  }, [startSession]);
 
   useEffect(() => {
-    if (gameState === 'showing' && showingIndex < sequence.length) {
-      const timer = setTimeout(() => {
-        setShowingIndex((prev) => prev + 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (gameState === 'showing' && showingIndex >= sequence.length) {
-      setTimeout(() => {
+    if (gameState !== 'showing' || sequence.length === 0) return;
+
+    const isLastNumber = showingIndex >= sequence.length - 1;
+    const timer = window.setTimeout(() => {
+      if (isLastNumber) {
         setGameState('input');
-      }, 500);
-    }
+        return;
+      }
+
+      setShowingIndex((prev) => Math.min(prev + 1, sequence.length - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
   }, [gameState, showingIndex, sequence.length]);
 
   const handleNumberClick = (num: number) => {
@@ -63,16 +68,24 @@ export function NumberSequenceGame({ onBack, userInfo }: NumberSequenceGameProps
 
     // 통계 저장
     const accuracy = correct ? 100 : 0;
-    const gameScore = correct ? 3 * 5 : 0;
+    const gameScore = correct ? SEQUENCE_LENGTH * POINTS_PER_NUMBER : 0;
     
     saveGameResult(userInfo.id, {
       gameName: '숫자 기억',
       score: gameScore,
       accuracy: accuracy
     });
+    if (currentSessionRef.current) {
+      endSession(currentSessionRef.current, gameScore, {
+        completed: correct,
+        accuracy,
+        sequenceLength: sequence.length
+      });
+      currentSessionRef.current = null;
+    }
 
     if (correct) {
-      const points = 3 * 5;
+      const points = SEQUENCE_LENGTH * POINTS_PER_NUMBER;
       setScore((prev) => prev + points);
       setTimeout(() => {
         startGame();
@@ -95,7 +108,7 @@ export function NumberSequenceGame({ onBack, userInfo }: NumberSequenceGameProps
         {/* 레벨 정보 */}
         {gameState !== 'ready' && (
           <div className="text-center mb-4">
-            <p className="text-sm text-gray-600">3개 숫자 기억</p>
+            <p className="text-sm text-gray-600">{SEQUENCE_LENGTH}개 숫자 기억</p>
           </div>
         )}
 
@@ -124,7 +137,7 @@ export function NumberSequenceGame({ onBack, userInfo }: NumberSequenceGameProps
           {gameState === 'showing' && (
             <div className="text-center">
               <div className="text-6xl mb-4 font-bold text-blue-600">
-                {showingIndex < sequence.length ? sequence[showingIndex] : ''}
+                {sequence[showingIndex] ?? ''}
               </div>
               <div className="text-gray-500 text-sm">
                 {Math.min(showingIndex + 1, sequence.length)} / {sequence.length}
