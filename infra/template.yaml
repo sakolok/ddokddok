@@ -26,6 +26,12 @@ Globals:
         USER_POOL_CLIENT_ID: !Ref UserPoolClient
         BEDROCK_MODEL_ID: !Ref BedrockModelId
         BEDROCK_FALLBACK_MODEL_ID: "apac.amazon.nova-lite-v1:0"
+        KNOWLEDGE_BASE_ID: !If
+          - HasKnowledgeBaseId
+          - !Ref KnowledgeBaseId
+          - !Ref CareGuideKnowledgeBase
+        KNOWLEDGE_BASE_MAX_RESULTS: !Ref KnowledgeBaseMaxResults
+        KNOWLEDGE_BASE_MIN_SCORE: !Ref KnowledgeBaseMinScore
         MOCK_LLM: "false"
         NOTIFY_SCORE_THRESHOLD: "6"
         SELF_ASSESSMENT_NOTIFY_THRESHOLD: "6"
@@ -54,6 +60,18 @@ Parameters:
     Type: String
     Default: "*"
     Description: IAM resource ARN for bedrock:InvokeModel. Set to a model or inference-profile ARN for stricter production least privilege.
+  KnowledgeBaseId:
+    Type: String
+    Default: ""
+    Description: Optional external Bedrock Knowledge Base ID. Leave empty to use the project-managed care guide knowledge base.
+  KnowledgeBaseMaxResults:
+    Type: Number
+    Default: 3
+    Description: Maximum number of Knowledge Base retrieval results passed to the model.
+  KnowledgeBaseMinScore:
+    Type: String
+    Default: "0.35"
+    Description: Minimum Knowledge Base retrieval score to pass into the model prompt.
   OpsAlertEmail:
     Type: String
     Default: ""
@@ -65,6 +83,7 @@ Parameters:
 
 Conditions:
   HasOpsAlertEmail: !Not [!Equals [!Ref OpsAlertEmail, ""]]
+  HasKnowledgeBaseId: !Not [!Equals [!Ref KnowledgeBaseId, ""]]
 
 Resources:
   Api:
@@ -231,6 +250,142 @@ Resources:
       VersioningConfiguration:
         Status: Suspended
 
+  KnowledgeBaseDocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "elder-voice-companion-kb-docs-${Stage}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  KnowledgeBaseVectorBucket:
+    Type: AWS::S3Vectors::VectorBucket
+    Properties:
+      VectorBucketName: !Sub "elder-voice-companion-kb-vectors-${Stage}-${AWS::AccountId}"
+
+  KnowledgeBaseVectorIndex:
+    Type: AWS::S3Vectors::Index
+    Properties:
+      VectorBucketArn: !GetAtt KnowledgeBaseVectorBucket.VectorBucketArn
+      IndexName: !Sub "elder-voice-companion-kb-${Stage}"
+      DataType: float32
+      Dimension: 1024
+      DistanceMetric: cosine
+
+  KnowledgeBaseServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                AWS:SourceArn: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*"
+      Policies:
+        - PolicyName: KnowledgeBaseAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:ListFoundationModels
+                  - bedrock:ListCustomModels
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt KnowledgeBaseDocumentsBucket.Arn
+                Condition:
+                  StringEquals:
+                    aws:ResourceAccount: !Ref AWS::AccountId
+                  StringLike:
+                    s3:prefix:
+                      - care-guides/
+                      - care-guides/*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub "${KnowledgeBaseDocumentsBucket.Arn}/care-guides/*"
+                Condition:
+                  StringEquals:
+                    aws:ResourceAccount: !Ref AWS::AccountId
+              - Effect: Allow
+                Action:
+                  - s3vectors:PutVectors
+                  - s3vectors:GetVectors
+                  - s3vectors:DeleteVectors
+                  - s3vectors:QueryVectors
+                  - s3vectors:GetIndex
+                Resource: !Ref KnowledgeBaseVectorIndex
+
+  KnowledgeBaseVectorBucketPolicy:
+    Type: AWS::S3Vectors::VectorBucketPolicy
+    Properties:
+      VectorBucketArn: !GetAtt KnowledgeBaseVectorBucket.VectorBucketArn
+      Policy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt KnowledgeBaseServiceRole.Arn
+            Action:
+              - s3vectors:PutVectors
+              - s3vectors:GetVectors
+              - s3vectors:DeleteVectors
+              - s3vectors:QueryVectors
+              - s3vectors:GetIndex
+            Resource: !Ref KnowledgeBaseVectorIndex
+
+  CareGuideKnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    DependsOn: KnowledgeBaseVectorBucketPolicy
+    Properties:
+      Name: !Sub "elder_voice_companion_kb_${Stage}"
+      Description: "KDSQ, self-assessment, guardian alert, and service guide knowledge base."
+      RoleArn: !GetAtt KnowledgeBaseServiceRole.Arn
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+          EmbeddingModelConfiguration:
+            BedrockEmbeddingModelConfiguration:
+              Dimensions: 1024
+              EmbeddingDataType: FLOAT32
+      StorageConfiguration:
+        Type: S3_VECTORS
+        S3VectorsConfiguration:
+          IndexArn: !Ref KnowledgeBaseVectorIndex
+
+  CareGuideDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      KnowledgeBaseId: !Ref CareGuideKnowledgeBase
+      Name: !Sub "elder_voice_companion_docs_${Stage}"
+      Description: "Project care guide documents for selective RAG."
+      DataDeletionPolicy: DELETE
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt KnowledgeBaseDocumentsBucket.Arn
+          InclusionPrefixes:
+            - care-guides/
+
   AnalysisDeadLetterQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -379,6 +534,17 @@ Resources:
               Action:
                 - bedrock:InvokeModel
               Resource: !Ref BedrockInvokeResourceArn
+            - Effect: Allow
+              Action:
+                - bedrock:Retrieve
+              Resource: !GetAtt CareGuideKnowledgeBase.KnowledgeBaseArn
+            - !If
+              - HasKnowledgeBaseId
+              - Effect: Allow
+                Action:
+                  - bedrock:Retrieve
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/${KnowledgeBaseId}"
+              - !Ref AWS::NoValue
             - Effect: Allow
               Action:
                 - cloudwatch:PutMetricData
@@ -874,6 +1040,24 @@ Resources:
       AlarmActions:
         - !Ref OpsAlertsTopic
 
+  KnowledgeBaseRetrieveFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Bedrock Knowledge Base retrieval failed."
+      Namespace: ElderVoiceCompanion
+      MetricName: KnowledgeBaseRetrieveFailure
+      Dimensions:
+        - Name: Stage
+          Value: !Ref Stage
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OpsAlertsTopic
+
   ElderVoiceDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
@@ -916,7 +1100,10 @@ Resources:
                   [ ".", "PollyFallbackEngine", ".", ".", { "stat": "Sum" } ],
                   [ ".", "TranscribeFailure", ".", ".", { "stat": "Sum" } ],
                   [ ".", "TranscribeSuccess", ".", ".", { "stat": "Sum" } ],
-                  [ ".", "TranscribeStreamUrlIssued", ".", ".", { "stat": "Sum" } ]
+                  [ ".", "TranscribeStreamUrlIssued", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "KnowledgeBaseRetrieveSuccess", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "KnowledgeBaseRetrieveEmpty", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "KnowledgeBaseRetrieveFailure", ".", ".", { "stat": "Sum" } ]
                 ],
                 "period": 300
               }
@@ -974,3 +1161,18 @@ Outputs:
   CloudWatchDashboard:
     Description: CloudWatch operational dashboard
     Value: !Sub "elder-voice-companion-${Stage}"
+  ProjectKnowledgeBaseId:
+    Description: Project-managed Bedrock Knowledge Base ID
+    Value: !Ref CareGuideKnowledgeBase
+  ProjectKnowledgeBaseDataSourceId:
+    Description: Project-managed Bedrock Knowledge Base data source ID
+    Value: !GetAtt CareGuideDataSource.DataSourceId
+  KnowledgeBaseDocumentsBucket:
+    Description: S3 bucket for Knowledge Base source documents
+    Value: !Ref KnowledgeBaseDocumentsBucket
+  KnowledgeBaseVectorBucketArn:
+    Description: S3 Vectors bucket ARN
+    Value: !GetAtt KnowledgeBaseVectorBucket.VectorBucketArn
+  KnowledgeBaseVectorIndexArn:
+    Description: S3 Vectors index ARN
+    Value: !Ref KnowledgeBaseVectorIndex

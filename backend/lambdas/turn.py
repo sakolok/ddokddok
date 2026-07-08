@@ -13,6 +13,7 @@ from shared.polly import synthesize_to_s3
 from shared.kdsq_questions import KDSQ_QUESTIONS
 from shared.auth import AuthError, require_session_access, require_user_access
 from shared.metrics import put_metric
+from shared.knowledge_base import is_configured as knowledge_base_configured, retrieve_context
 
 SAFE_FALLBACK = {
     "say": "제가 지금 답을 준비하는 연결이 불안정해요. 방금 말씀을 한 번만 다시 들려주시면 바로 이어서 대화할게요.",
@@ -67,6 +68,12 @@ AWKWARD_PHRASE_REPLACEMENTS = {
     "힐링": "마음을 가라앉히는 시간",
     "오늘 하루도 잘 마무리하시길 바래요.": "",
     "오늘 하루도 잘 마무리하시길 바라요.": "",
+    "오늘 하루도 마음이 많이 가라앉으셨겠어요.": "마음이 많이 무거우셨겠어요.",
+    "옆집 할머니님이": "옆집 할머니가",
+    "할머니님이": "할머니가",
+    "할머니님": "할머니",
+    "좋은 음식을 먹으시니 기분이 좋아하실 거예요.": "고마운 마음이 드셨겠어요.",
+    "오늘 이야기 하시는 건 좀 피곤하시겠죠?": "오늘은 여기까지 이야기하고 싶으시군요. 편하실 때 다시 이어가요.",
     "엄마님께서는": "",
     "엄마님께서": "",
     "엄마님은": "",
@@ -132,6 +139,84 @@ KDSQ_CONTEXT_KEYWORDS = {
     "social": ["대중교통", "버스", "지하철", "목적지", "외출"],
     "mood": ["성격", "기분", "화", "짜증", "우울"],
 }
+
+EXTERNAL_FACT_KEYWORDS = [
+    "예약",
+    "일정",
+    "약속 시간",
+    "몇 시",
+    "몇시",
+    "날씨",
+    "뉴스",
+    "전화번호",
+    "주소",
+    "영업시간",
+    "버스 시간",
+    "지하철 시간",
+    "가격",
+    "주가",
+    "환율",
+]
+
+EXTERNAL_FACT_REQUEST_KEYWORDS = [
+    "알려",
+    "확인",
+    "찾아",
+    "몇",
+    "언제",
+    "어디",
+    "바로",
+    "전화번호",
+    "주소",
+    "어때",
+]
+
+FAMILY_PREDICTION_KEYWORDS = [
+    "전화할까",
+    "연락할까",
+    "연락올까",
+    "연락 올까",
+    "전화올까",
+    "전화 올까",
+]
+
+CONVERSATION_CLOSING_KEYWORDS = [
+    "여기까지",
+    "그만할",
+    "그만 할",
+    "마칠",
+    "마무리",
+    "쉬고 싶",
+    "다음에",
+]
+
+KNOWLEDGE_BASE_QUERY_KEYWORDS = [
+    "kdsq",
+    "인지검사",
+    "자가문진",
+    "문진",
+    "검사",
+    "점수",
+    "해석",
+    "기준",
+    "똑똑똑",
+    "서비스",
+    "음성",
+    "stt",
+    "transcribe",
+    "polly",
+    "bedrock",
+    "보호자",
+    "알림",
+    "치매안심센터",
+    "왜 물어",
+    "왜 묻",
+    "무슨 뜻",
+    "뭐야",
+    "무엇",
+    "설명",
+    "의미",
+]
 
 
 def _safe_int(value, default=0):
@@ -208,12 +293,16 @@ def _kdsq_context_types(text):
 def _conversation_signals(transcript, recent_history, pending_kdsq_id):
     normalized = _normalized(transcript)
     recent_users = _recent_user_texts(recent_history, limit=2)
-    recent_assistant = _recent_assistant_text(recent_history, limit=3)
-    recent_text = " ".join(recent_users + [recent_assistant, transcript])
     short_continuation = normalized in SHORT_CONTINUATION_REPLIES or len(normalized) <= 2
-    family_contact_concern = _contains_any(recent_text, FAMILY_CONTACT_KEYWORDS) and _contains_any(recent_text, ["연락", "전화", "문자", "걱정", "안와", "없"])
+    latest_family_contact_concern = _contains_any(transcript, FAMILY_CONTACT_KEYWORDS) and _contains_any(transcript, ["연락", "전화", "문자", "걱정", "안와", "없"])
+    recent_family_contact_concern = any(
+        _contains_any(text, FAMILY_CONTACT_KEYWORDS)
+        and _contains_any(text, ["연락", "전화", "문자", "걱정", "안와", "없"])
+        for text in recent_users
+    )
+    family_contact_concern = latest_family_contact_concern or (short_continuation and recent_family_contact_concern)
     emotional_concern = _contains_any(transcript, CONCERN_KEYWORDS)
-    active_recent_concern = any(_contains_any(text, CONCERN_KEYWORDS + FAMILY_CONTACT_KEYWORDS) for text in recent_users)
+    active_recent_concern = short_continuation and any(_contains_any(text, CONCERN_KEYWORDS) for text in recent_users)
     kdsq_context_types = _kdsq_context_types(transcript)
 
     deferred_reason = "NONE"
@@ -223,7 +312,7 @@ def _conversation_signals(transcript, recent_history, pending_kdsq_id):
         deferred_reason = "short_continuation"
     elif family_contact_concern:
         deferred_reason = "active_family_contact_concern"
-    elif emotional_concern:
+    elif emotional_concern and not kdsq_context_types:
         deferred_reason = "active_emotional_concern"
     elif active_recent_concern and not kdsq_context_types:
         deferred_reason = "recent_concern_followup"
@@ -265,8 +354,70 @@ def _topic_guidance(signals):
     return "No special topic constraint beyond staying natural and avoiding repeated phrasing."
 
 
+def _conversation_closing_response(transcript):
+    if not _contains_any(transcript, CONVERSATION_CLOSING_KEYWORDS):
+        return None
+    return "네, 오늘은 여기까지 이야기해요. 편하실 때 다시 오시면 제가 이어서 들어드릴게요."
+
+
+def _unsupported_external_fact_response(transcript):
+    if _contains_any(transcript, FAMILY_CONTACT_KEYWORDS) and _contains_any(transcript, FAMILY_PREDICTION_KEYWORDS):
+        return "제가 가족분이 오늘 연락하실지는 알 수 없어요. 걱정되시면 짧게 안부 문자를 남기고, 급한 일이라면 가까운 가족이나 이웃에게 같이 확인을 부탁해보세요."
+
+    if (
+        _contains_any(transcript, EXTERNAL_FACT_KEYWORDS)
+        and _contains_any(transcript, EXTERNAL_FACT_REQUEST_KEYWORDS)
+    ):
+        if _contains_any(transcript, ["예약", "일정", "약속 시간", "몇 시", "몇시"]):
+            return "제가 이 앱 안에서는 병원 예약 시간이나 개인 일정을 확인할 수 없어요. 예약 문자나 병원 앱을 확인해보시고, 어려우시면 보호자에게 같이 확인을 부탁해보세요."
+        if _contains_any(transcript, ["전화번호", "주소", "영업시간", "가까운"]):
+            return "제가 여기서 현재 위치나 기관 연락처를 바로 조회할 수는 없어요. 지역명과 함께 치매안심센터를 검색하거나, 보호자에게 확인을 부탁해보는 게 안전해요."
+        return "제가 여기서 실시간 정보는 확인할 수 없어요. 휴대폰 알림이나 공식 안내를 확인하고, 필요하면 보호자에게 같이 확인을 부탁해보세요."
+
+    return None
+
+
+def _forced_policy_response(transcript):
+    closing = _conversation_closing_response(transcript)
+    if closing:
+        return closing, "conversation_closing"
+
+    external_fact = _unsupported_external_fact_response(transcript)
+    if external_fact:
+        return external_fact, "unsupported_external_fact_guard"
+
+    return None, None
+
+
+def _should_use_knowledge_base(transcript, signals):
+    if not knowledge_base_configured():
+        return False, "knowledge_base_not_configured"
+    if signals.get("short_continuation"):
+        return False, "short_continuation"
+    if _contains_any(transcript, KNOWLEDGE_BASE_QUERY_KEYWORDS):
+        return True, "information_question"
+    if signals.get("family_contact_concern"):
+        return False, "active_family_contact_concern"
+    return False, "not_information_question"
+
+
 def _split_sentences(text):
     return [part.strip() for part in re.findall(r"[^.!?。？！]+[.!?。？！]?", text or "") if part.strip()]
+
+
+def _drop_repeated_phrase_sentences(text, phrase):
+    sentences = _split_sentences(text)
+    if not sentences:
+        return text
+    seen = False
+    kept = []
+    for sentence in sentences:
+        if phrase in sentence:
+            if seen:
+                continue
+            seen = True
+        kept.append(sentence)
+    return " ".join(kept)
 
 
 def _recent_assistant_text(recent_history, limit=4):
@@ -348,6 +499,7 @@ def _polish_response_text(text, recent_history=None, transcript="", signals=None
         polished = " ".join(kept_sentences)
 
     polished = " ".join(polished.split()).strip()
+    polished = _drop_repeated_phrase_sentences(polished, "당연")
     if (
         signals
         and signals.get("family_contact_concern")
@@ -365,6 +517,31 @@ def _polish_response_text(text, recent_history=None, transcript="", signals=None
     if not polished and signals:
         return _continuation_fallback(transcript, signals, recent_history)
     return polished
+
+
+def _append_contextual_kdsq(say, question):
+    if not question:
+        return say
+    if question in say:
+        return say
+    if not say:
+        return question
+    return f"{say} {question}"
+
+
+def _trim_knowledge_base_response(say, transcript):
+    sentences = _split_sentences(say)
+    if not sentences:
+        return say
+    if not _contains_any(transcript, FAMILY_CONTACT_KEYWORDS):
+        sentences = [
+            sentence for sentence in sentences
+            if not (
+                _contains_any(sentence, FAMILY_CONTACT_KEYWORDS)
+                and _contains_any(sentence, ["연락", "전화", "마지막"])
+            )
+        ]
+    return " ".join(sentences[:3])
 
 
 def handler(event, _context):
@@ -472,11 +649,38 @@ def handler(event, _context):
     if kdsq_allowed and candidates:
         kdsq_target = _choose_kdsq_target(candidates, conversation_signals)
 
+    forced_say, forced_reason = _forced_policy_response(transcript)
+    if forced_say:
+        knowledge_context = {
+            "configured": knowledge_base_configured(),
+            "used": False,
+            "results": [],
+            "skipped_reason": forced_reason,
+        }
+    else:
+        should_retrieve_kb, kb_skip_reason = _should_use_knowledge_base(transcript, conversation_signals)
+        knowledge_context = retrieve_context(transcript) if should_retrieve_kb else {
+            "configured": knowledge_base_configured(),
+            "used": False,
+            "results": [],
+            "skipped_reason": kb_skip_reason,
+        }
+
     prompt = {
         "prompt_version": PROMPT_VERSION,
         "task": "elder_companion_friend_with_natural_kdsq",
         "user_input": transcript,
         "conversation_history": recent_history,
+        "knowledge_base": knowledge_context,
+        "knowledge_base_policy": {
+            "use_only_for_information_questions": True,
+            "active_topic_has_priority": True,
+            "instruction": (
+                "If knowledge_base.used is true, ground factual explanations about KDSQ, self-assessment, "
+                "guardian alerts, or service guidance in the retrieved snippets. If the snippets are insufficient, "
+                "say that the app cannot confirm the detail from the available guide instead of inventing."
+            ),
+        },
         "kdsq_just_answered": kdsq_just_answered_payload,
         "recent_kdsq_item_id": last_kdsq_item_id,
         "exclude_kdsq_item_ids": list(set(asked_ids + recent_kdsq_ids)),
@@ -499,6 +703,7 @@ def handler(event, _context):
             "Do not repeat a prior assistant sentence or question from conversation_history.",
             "Ask at most one follow-up question that is relevant to the user's latest topic.",
             "If KDSQ is asked, make it sound like a caring friend checking in, not a survey.",
+            "For service/KDSQ explanation questions, use knowledge_base snippets when available and keep the answer concise.",
         ],
         "constraints": {
             "style": "polite_korean",
@@ -523,6 +728,7 @@ def handler(event, _context):
             "kdsq_rephrase": True,
             "avoid_survey_tone": True,
             "explain_kdsq_naturally_if_asked": True,
+            "use_knowledge_base_when_available": bool(knowledge_context.get("used")),
             "response_format": "json",
         },
         "kdsq_question_pool": [kdsq_target] if kdsq_target else [],
@@ -536,12 +742,20 @@ def handler(event, _context):
     }
 
     fallback_reason = None
-    try:
-        model_resp = invoke_chat(prompt)
-    except Exception as exc:
-        _logger.exception("Bedrock invoke failed: %s", exc)
-        fallback_reason = "bedrock_exception"
-        model_resp = {}
+    if forced_say:
+        model_resp = {
+            "say": forced_say,
+            "tags": {"kdsq_item_id": "NONE", "risk_hint": "NONE"},
+        }
+        metric_name = "UnsupportedExternalFactGuard" if forced_reason == "unsupported_external_fact_guard" else "ConversationClosingGuard"
+        put_metric(metric_name)
+    else:
+        try:
+            model_resp = invoke_chat(prompt)
+        except Exception as exc:
+            _logger.exception("Bedrock invoke failed: %s", exc)
+            fallback_reason = "bedrock_exception"
+            model_resp = {}
     say = (model_resp.get("say") or "").strip()
     tags = model_resp.get("tags") or {}
     kdsq_item_id = tags.get("kdsq_item_id", "NONE")
@@ -573,6 +787,22 @@ def handler(event, _context):
         transcript=transcript,
         signals=conversation_signals,
     )
+    if knowledge_context.get("used"):
+        say = _trim_knowledge_base_response(say, transcript)
+
+    if (
+        not forced_say
+        and kdsq_item_id == "NONE"
+        and kdsq_target
+        and conversation_signals.get("deferred_reason") == "NONE"
+        and conversation_signals.get("kdsq_context_types")
+    ):
+        kdsq_question = kdsq_target.get("question", "")
+        say = _append_contextual_kdsq(say, kdsq_question)
+        if kdsq_question and kdsq_question in say:
+            kdsq_item_id = kdsq_target.get("id", "NONE")
+            tags["kdsq_item_id"] = kdsq_item_id
+
     if not say:
         _logger.warning("Response became empty after polishing; using SAFE_FALLBACK")
         fallback_reason = fallback_reason or "empty_after_polish"
@@ -692,6 +922,8 @@ def handler(event, _context):
                     "kdsq_item_id": kdsq_item_id,
                     "risk_hint": risk_hint,
                     "prompt_version": PROMPT_VERSION,
+                    "knowledge_base_used": knowledge_context.get("used", False),
+                    "knowledge_base_skipped_reason": knowledge_context.get("skipped_reason", "NONE"),
                 },
                 "expires_at": ttl_epoch(180),
             }
@@ -705,5 +937,16 @@ def handler(event, _context):
     return json_response(200, {
         "assistant_text": say,
         "audio": audio,
-        "tags": {"kdsq_item_id": kdsq_item_id, "risk_hint": risk_hint, "prompt_version": PROMPT_VERSION},
+        "tags": {
+            "kdsq_item_id": kdsq_item_id,
+            "risk_hint": risk_hint,
+            "prompt_version": PROMPT_VERSION,
+            "knowledge_base_used": knowledge_context.get("used", False),
+            "knowledge_base_skipped_reason": knowledge_context.get("skipped_reason", "NONE"),
+            "knowledge_base_sources": [
+                result.get("source")
+                for result in knowledge_context.get("results", [])
+                if result.get("source")
+            ][:3],
+        },
     })
