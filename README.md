@@ -37,6 +37,8 @@
 
 ![똑똑똑 AWS 서버리스 아키텍처](docs/assets/ddokddok-architecture.png)
 
+Draw.io 원본: [docs/assets/ddokddok-architecture.drawio](docs/assets/ddokddok-architecture.drawio)
+
 1. 사용자는 React/Vite PWA에 접속하고 Cognito 기반 로그인 또는 회원가입을 수행합니다.
 2. 프론트엔드는 API Gateway REST API를 통해 인증, 세션, 대화, 음성 인식, 활동 기록 API를 호출합니다.
 3. 음성 입력은 브라우저가 Transcribe Streaming WebSocket에 직접 연결하도록 Lambda가 presigned URL을 발급합니다.

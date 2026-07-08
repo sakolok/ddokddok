@@ -1,0 +1,227 @@
+<mxfile host="app.diagrams.net" modified="2026-07-08T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="ddokddok-aws-architecture" name="똑똑똑 AWS Architecture">
+    <mxGraphModel dx="1600" dy="1050" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1050" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="aws-cloud" value="AWS Cloud" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#87919C;fillColor=none;strokeWidth=2;fontSize=18;fontStyle=1;fontColor=#667085;align=left;verticalAlign=top;spacingLeft=60;spacingTop=14;" vertex="1" parent="1">
+          <mxGeometry x="240" y="30" width="1160" height="960" as="geometry" />
+        </mxCell>
+        <mxCell id="cloud-tab" value="cloud" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6B7280;strokeColor=#6B7280;fontColor=#FFFFFF;fontSize=10;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="240" y="30" width="44" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="똑똑똑 AWS 서버리스 음성 AI 케어 아키텍처" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;fontColor=#111827;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="510" y="58" width="620" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="senior" value="시니어 사용자" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#1F2937;fontColor=#1F2937;fontSize=17;" vertex="1" parent="1">
+          <mxGeometry x="55" y="455" width="70" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="guardian" value="보호자" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#1F2937;fontColor=#1F2937;fontSize=17;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="655" width="70" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="amplify" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#FF9900;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.amplify;" vertex="1" parent="1">
+          <mxGeometry x="335" y="180" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="amplify-label" value="AWS Amplify&lt;br&gt;Hosting&lt;br&gt;React PWA" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="300" y="274" width="156" height="66" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cognito" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#DD344C;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" vertex="1" parent="1">
+          <mxGeometry x="335" y="620" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="cognito-label" value="Amazon Cognito&lt;br&gt;로그인 / 보호자 PIN" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="300" y="714" width="156" height="54" as="geometry" />
+        </mxCell>
+
+        <mxCell id="apigw" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" vertex="1" parent="1">
+          <mxGeometry x="565" y="450" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="apigw-label" value="API Gateway&lt;br&gt;REST API&lt;br&gt;Cognito Authorizer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="525" y="544" width="166" height="66" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lambda-auth" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="760" y="205" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-auth-label" value="auth_*&lt;br&gt;회원가입 / 로그인" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="726" y="299" width="154" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lambda-transcribe" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="760" y="345" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-transcribe-label" value="transcribe_stream_url&lt;br&gt;STT URL 발급" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="705" y="439" width="196" height="54" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lambda-turn" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="760" y="500" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-turn-label" value="/turn&lt;br&gt;대화 처리" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="728" y="594" width="150" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lambda-weekly" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="760" y="650" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-weekly-label" value="activity_weekly&lt;br&gt;보호자 대시보드" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="710" y="744" width="188" height="54" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lambda-session-end" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="760" y="820" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-session-end-label" value="session_end&lt;br&gt;분석 요청" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="724" y="914" width="158" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lambda-analysis" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="985" y="760" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda-analysis-label" value="analysis&lt;br&gt;AI 분석" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="950" y="854" width="156" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dynamodb" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="145" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="dynamodb-label" value="DynamoDB&lt;br&gt;Users / Sessions / Turns&lt;br&gt;KDSQ / Activity" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="992" y="239" width="184" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="transcribe" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#01A88D;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.transcribe;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="345" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="transcribe-label" value="Amazon Transcribe&lt;br&gt;Streaming / Batch fallback" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="985" y="439" width="196" height="54" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bedrock" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#01A88D;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="500" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="bedrock-label" value="Amazon Bedrock&lt;br&gt;AI 응답 / 요약" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="992" y="594" width="184" height="54" as="geometry" />
+        </mxCell>
+
+        <mxCell id="polly" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#01A88D;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.polly;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="640" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="polly-label" value="Amazon Polly&lt;br&gt;음성 합성" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="994" y="734" width="180" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s3" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" vertex="1" parent="1">
+          <mxGeometry x="1235" y="640" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-label" value="Amazon S3&lt;br&gt;polly/ audio&lt;br&gt;transcribe input/output" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1185" y="734" width="190" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sqs" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;" vertex="1" parent="1">
+          <mxGeometry x="985" y="900" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="sqs-label" value="Amazon SQS&lt;br&gt;분석 큐" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="950" y="994" width="156" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sns" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sns;" vertex="1" parent="1">
+          <mxGeometry x="1235" y="760" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="sns-label" value="Amazon SNS&lt;br&gt;보호자 알림" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="854" width="180" height="52" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cloudwatch" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#FFFFFF;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;" vertex="1" parent="1">
+          <mxGeometry x="1215" y="135" width="86" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudwatch-label" value="CloudWatch&lt;br&gt;Metrics / Alarms&lt;br&gt;Dashboard" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontColor=#1F2937;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="229" width="180" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-user-amplify" value="웹 접속" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="senior" target="amplify">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-user-cognito" value="로그인" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="senior" target="cognito">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-amplify-api" value="REST 호출" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="amplify" target="apigw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cognito-api" value="JWT Authorizer" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="cognito" target="apigw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-auth" value="/auth/*" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="apigw" target="lambda-auth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-transcribe" value="/transcribe/stream-url" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="apigw" target="lambda-transcribe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-turn" value="/turn" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="apigw" target="lambda-turn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-weekly" value="/activity/weekly" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="apigw" target="lambda-weekly">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-api-session" value="/session/end" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="apigw" target="lambda-session-end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-auth-cognito" value="User Pool" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-auth" target="cognito">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-auth-ddb" value="profile" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-auth" target="dynamodb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-transcribe-service" value="presigned WebSocket" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-transcribe" target="transcribe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-amplify-transcribe" value="audio stream" style="endArrow=block;html=1;rounded=0;dashed=1;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="amplify" target="transcribe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-turn-ddb" value="대화 / KDSQ 저장" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-turn" target="dynamodb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-turn-bedrock" value="prompt" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-turn" target="bedrock">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-bedrock-turn" value="response" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="bedrock" target="lambda-turn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-turn-polly" value="assistant text" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-turn" target="polly">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-polly-s3" value="mp3" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="polly" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-weekly-ddb" value="weekly query" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-weekly" target="dynamodb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-weekly-bedrock" value="summary" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-weekly" target="bedrock">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-session-sqs" value="enqueue" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-session-end" target="sqs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sqs-analysis" value="trigger" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="sqs" target="lambda-analysis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-analysis-ddb" value="read sessions" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-analysis" target="dynamodb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-analysis-bedrock" value="analysis prompt" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-analysis" target="bedrock">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-analysis-sns" value="notify" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="lambda-analysis" target="sns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sns-guardian" value="email alert" style="endArrow=block;html=1;rounded=0;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="sns" target="guardian">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-services-cloudwatch" value="metrics / alarms" style="endArrow=block;html=1;rounded=0;dashed=1;strokeWidth=2;fontSize=13;fontColor=#111827;" edge="1" parent="1" source="dynamodb" target="cloudwatch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
