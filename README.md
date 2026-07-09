@@ -46,7 +46,7 @@
 6. 대화, KDSQ 응답, 자가 문진, 활동 로그는 DynamoDB 테이블에 분리 저장됩니다.
 7. `/session/end`는 분석 요청을 SQS에 넣고, 분석 Lambda가 대화/KDSQ/활동 데이터를 요약해 필요 시 SNS로 보호자에게 알립니다.
 
-## 핵심 기여
+## 기여 성과
 
 ### 1. 실시간 대화와 비동기 분석 분리
 
@@ -65,56 +65,71 @@ API Gateway + Lambda로 대화 API를 구성하고, `/turn`은 즉시 응답 생
 ### 2. Transcribe Streaming 직접 연결 구조
 
 **Problem**
+
 브라우저 음성 인식에 의존하면 OS/브라우저별 동작 차이가 크고, Lambda request-response 방식으로 실시간 오디오 스트림을 중계하면 timeout과 병목 위험이 생깁니다.
 
 **Solution**
+
 Lambda는 Transcribe Streaming presigned WebSocket URL만 발급하고, 브라우저가 AWS Transcribe Streaming으로 직접 음성 chunk를 전송하도록 설계했습니다. 짧은 음성 입력과 fallback 처리는 기존 Transcribe Lambda/S3 경로로 분리했습니다.
 
 **Result**
+
 실시간 오디오 처리를 Lambda가 직접 떠안지 않게 되어 timeout 위험을 줄였고, STT 성공/실패를 AWS 서비스 및 CloudWatch 지표 기준으로 추적할 수 있게 했습니다.
 
 ### 3. Bedrock Knowledge Base 기반 응답 방어
 
 **Problem**
+
 Bedrock 모델만으로 서비스 정책, KDSQ 기준, 보호자 알림 기준을 설명하면 모델이 없는 정보를 만들어낼 수 있습니다. 반대로 모든 대화에 RAG를 적용하면 정서 대화의 자연스러움이 떨어질 수 있습니다.
 
 **Solution**
+
 KDSQ, 자가문진, 보호자 알림, 서비스 안내처럼 사실 기반 설명이 필요한 질문에서만 Bedrock Knowledge Base를 선택적으로 조회하도록 라우팅했습니다. KB 문서는 S3 `care-guides/`에 두고, S3 Vectors 기반 Knowledge Base와 Titan embeddings 인덱스를 SAM 템플릿으로 관리했습니다.
 
 **Result**
+
 정확성이 필요한 구간은 KB 검색 결과를 근거로 답하도록 보강하고, 일반 정서 대화는 기존 대화 정책을 우선하도록 분리했습니다. 예약 시간, 가족 연락 여부, 실시간 정보처럼 시스템이 알 수 없는 질문은 Bedrock 호출 전 guard rule로 차단했습니다.
 
 ### 4. KDSQ 문진을 대화 흐름에 맞게 제어
 
 **Problem**
+
 KDSQ를 설문처럼 직접 반복하면 시니어 사용자가 검사받는 느낌을 받을 수 있고, 반대로 자유 대화만 두면 인지 변화 관찰에 필요한 신호가 누락될 수 있습니다.
 
 **Solution**
+
 최소 대화 턴 수, 질문 간격, 하루 질문 제한, 최근 질문 제외 조건을 두고, 기억/계산/일상 수행 같은 맥락이 드러날 때 관련 질문을 자연스럽게 연결했습니다. 가족 걱정, 짧은 대답, 감정 호소가 활성화된 경우에는 KDSQ 질문을 미루도록 서버 측 정책을 구성했습니다.
 
 **Result**
+
 문진이 대화를 끊지 않도록 제어하면서도, 보호자 대시보드와 주간 요약에 활용할 수 있는 KDSQ 기반 인지 신호를 대화 흐름 안에서 기록할 수 있게 했습니다.
 
 ### 5. Polly 음성 합성과 fallback 파이프라인
 
 **Problem**
+
 시니어 대상 서비스에서는 텍스트 응답보다 음성 응답의 안정성이 중요합니다. 특정 Polly 엔진이 계정/리전 상태에 따라 실패하면 전체 대화 응답이 실패할 수 있습니다.
 
 **Solution**
+
 Polly Seoyeon 음성을 기본으로 사용하고, generative → neural → standard 순서의 fallback 엔진을 적용했습니다. 합성된 MP3는 S3 `polly/` prefix에 저장하고, 프론트엔드에는 presigned URL을 반환하도록 구성했습니다.
 
 **Result**
+
 음성 합성 실패가 곧바로 전체 대화 실패로 번지지 않도록 했고, fallback 사용 여부와 실패를 CloudWatch custom metric으로 관측할 수 있게 했습니다.
 
 ### 6. 운영 관측성과 배포 재현성 확보
 
 **Problem**
+
 AI 음성 서비스는 Lambda 오류뿐 아니라 STT, TTS, Bedrock fallback, KB 검색 실패, SQS 적체처럼 장애 지점이 여러 서비스에 흩어집니다. 로그만으로는 어느 구간의 문제인지 빠르게 구분하기 어렵습니다.
 
 **Solution**
+
 Transcribe URL 발급, Polly 실패/fallback, Bedrock invoke/fallback, Knowledge Base 조회 성공/빈 결과/실패, SQS queue 상태를 CloudWatch metric/alarm/dashboard로 분리했습니다. Cognito, DynamoDB, S3, SQS, SNS, Bedrock Knowledge Base, S3 Vectors 리소스는 SAM 템플릿에서 함께 관리했습니다.
 
 **Result**
+
 기능 구현을 넘어 장애 원인을 서비스 단위로 추적할 수 있는 운영 구조를 만들었습니다. 인프라 리소스를 코드로 관리해 재배포와 포트폴리오 설명의 재현성을 높였습니다.
 
 ## Conversation Pipeline
