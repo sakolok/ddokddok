@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "똑똑똑",
+    "slug": "toktoktok",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/toktoktok_2d_official_logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/toktoktok_2d_official_logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.toktoktok.app"
+    },
+    "android": {
+      "package": "com.toktoktok.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/toktoktok_2d_official_logo.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/toktoktok_2d_official_logo.png"
+    }
+  }
+}
