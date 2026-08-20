@@ -13,7 +13,7 @@ const FONT_FAMILY = Platform.OS === 'web'
   ? '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif' 
   : 'Pretendard';
 
-// 사용자 홈 대시보드 및 게임 화면에서 동일하게 사용하는 핵심 3D PNG 아이콘 에셋
+// 핵심 3D PNG 아이콘 에셋
 const CHECKLIST_ICON   = require('../../assets/self_assessment_icon.png');
 const CARDS_ICON       = require('../../assets/brain_game_icon.png');
 const STUDIO_MIC_ICON  = require('../../assets/studio_mic_icon.png');
@@ -48,12 +48,12 @@ const KDSQ_QUESTIONS_DATA = [
   { id: 15, q: '내복이나 옷이 더러워져도 갈아입지 않으려 한다.',           answer: '아니다', score: 0, level: 'normal'  },
 ];
 
-// 두뇌 게임 기록 데이터 (게임 화면과 100% 동일한 아이콘 에셋 적용)
+// 두뇌 게임 기록 세부 데이터 (4종 PNG 아이콘 에셋 매핑)
 const GAME_HISTORY_DATA = [
-  { id: 'cards',  name: '카드 짝 맞추기', iconAsset: ICON_CARD_MATCH,  score: '88점', grade: 'S등급',  time: '24초 완성', color: '#0D9488', bg: '#E6F4F1', desc: '시각 단기 기억력 우수' },
-  { id: 'colors', name: '색상 맞추기',    iconAsset: ICON_COLOR_MATCH, score: '95점', grade: 'A+등급', time: '정확도 100%', color: '#0284C7', bg: '#E0F2FE', desc: '집중 제어력 상위 5%' },
-  { id: 'numbers',name: '숫자 기억하기',  iconAsset: ICON_NUMBER_MEM,  score: '7단계',grade: '우수',   time: '순서 기억 유지', color: '#7C3AED', bg: '#F3E8FF', desc: '작업 기억력 양호' },
-  { id: 'math',   name: '신속 연산 게임', iconAsset: ICON_QUICK_MATH,  score: '90점', grade: '우수',   time: '반응 1.2초', color: '#D97706', bg: '#FEF3C7', desc: '수리 순발력 상위권' },
+  { id: 'cards',  name: '카드 짝 맞추기', iconAsset: ICON_CARD_MATCH,  score: '88점', grade: 'S등급',  time: '24초 완성', color: '#0D9488', bg: '#E6F4F1', desc: '시각 단기 기억력 우수', category: '기억력' },
+  { id: 'colors', name: '색상 맞추기',    iconAsset: ICON_COLOR_MATCH, score: '95점', grade: 'A+등급', time: '정확도 100%', color: '#0284C7', bg: '#E0F2FE', desc: '집중 제어력 상위 5%', category: '집중력' },
+  { id: 'numbers',name: '숫자 기억하기',  iconAsset: ICON_NUMBER_MEM,  score: '7단계',grade: '우수',   time: '순서 기억 유지', color: '#7C3AED', bg: '#F3E8FF', desc: '작업 기억 유지 양호', category: '작업기억' },
+  { id: 'math',   name: '신속 연산 게임', iconAsset: ICON_QUICK_MATH,  score: '90점', grade: '우수',   time: '반응 1.2초', color: '#D97706', bg: '#FEF3C7', desc: '수리 순발력 상위권', category: '순발력' },
 ];
 
 // ── 알림 탭 ──────────────────────────────────────────────
@@ -283,7 +283,7 @@ function SeniorHomeTab({ navigation }) {
         </Text>
       </View>
 
-      {/* ── 퀵 2버튼: 건강 체크 & 두뇌 게임 (3D 아이콘 에셋 적용) ── */}
+      {/* ── 퀵 2버튼: 건강 체크 & 두뇌 게임 ── */}
       <View style={{ flexDirection: 'row', gap: 14, marginBottom: 28 }}>
         <TouchableOpacity 
           style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 24, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 }}
@@ -345,8 +345,8 @@ function SeniorHomeTab({ navigation }) {
   );
 }
 
-// ── 보호자 전용 대시보드 탭 (Guardian Home Tab - 사용자 홈 아이콘 에셋 100% 통일) ──────────────────────
-function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript }) {
+// ── 보호자 전용 대시보드 탭 (Guardian Home Tab) ──────────────────────
+function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onOpenGameDetail }) {
   const { currentUser } = useUser();
   const userName = currentUser?.name || '어르신';
   const [playingId, setPlayingId] = useState(null);
@@ -363,7 +363,7 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc' }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
       
-      {/* ── 1. KDSQ 인지 건강 검사 결과 (사용자 홈 CHECKLIST_ICON 100% 동일 적용) ── */}
+      {/* ── 1. KDSQ 인지 건강 검사 결과 (클릭 시 세부사항 모달) ── */}
       <TouchableOpacity 
         style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}
         onPress={onOpenHealthDetail}
@@ -406,96 +406,89 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript }) {
         </View>
       </TouchableOpacity>
 
-      {/* ── 2. 두뇌 훈련 게임 활동 기록 (사용자 홈 CARDS_ICON 및 게임별 4종 에셋 100% 동일 적용) ── */}
-      <View style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+      {/* ── 2. 두뇌 훈련 게임 시계열 차트 (클릭 시 4종 게임 세부 분석 보고서 모달 오픈) ── */}
+      <TouchableOpacity 
+        style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}
+        onPress={onOpenGameDetail}
+        activeOpacity={0.88}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#0284c7', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 }}>
               <Image source={CARDS_ICON} style={{ width: 36, height: 36 }} resizeMode="contain" />
             </View>
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a' }}>두뇌 훈련 게임 기록</Text>
-          </View>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#0284c7' }}>달성률 92%</Text>
-        </View>
-
-        {/* 게임별 점수 그리드 (게임 화면과 동일한 4종 PNG 아이콘 에셋 사용) */}
-        <View style={{ gap: 10 }}>
-          {GAME_HISTORY_DATA.map(game => (
-            <View key={game.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#f1f5f9' }}>
-              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', marginRight: 12, borderWidth: 1, borderColor: '#E2E7F0' }}>
-                <Image source={game.iconAsset} style={{ width: 32, height: 32 }} resizeMode="contain" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#1e293b' }}>{game.name}</Text>
-                  <View style={{ backgroundColor: game.bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '800', color: game.color }}>{game.grade}</Text>
-                  </View>
-                </View>
-                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#64748b', marginTop: 2 }}>{game.desc}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '800', color: '#0f172a' }}>{game.score}</Text>
-                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{game.time}</Text>
-              </View>
+            <View>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a' }}>두뇌 훈련 점수 시계열 추이</Text>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#64748b', fontWeight: '500', marginTop: 2 }}>월~일 주간 점수 변화 기록</Text>
             </View>
-          ))}
+          </View>
+          <View style={{ backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#0284c7' }}>평균 90점 📈</Text>
+          </View>
         </View>
 
-        {/* ── 주간 두뇌 훈련 점수 시각화 막대 그래프 ── */}
-        <View style={{ marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        {/* 시계열 추이 라인 & 데이터 노드 차트 (Time-Series Chart) */}
+        <View style={{ backgroundColor: '#f8fafc', borderRadius: 18, paddingVertical: 16, paddingHorizontal: 12, marginVertical: 8, borderWidth: 1, borderColor: '#f1f5f9' }}>
+          <View style={{ height: 120, justifyContent: 'space-between' }}>
+            {/* 배경 수평 가이드 그리드 3선 */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="bar-chart" size={16} color="#0d9488" />
-              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#0f172a', fontWeight: '800' }}>주간 두뇌 점수 추이</Text>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, color: '#94a3b8', width: 22 }}>100</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }} />
             </View>
-            <View style={{ backgroundColor: '#e6f4f1', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
-              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '800', color: '#0d9488' }}>주간 평균 90점 📈</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, color: '#94a3b8', width: 22 }}>50</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: '#f1f5f9' }} />
             </View>
-          </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, color: '#94a3b8', width: 22 }}>0</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: '#e2e8f0' }} />
+            </View>
 
-          {/* 시각적 막대 그래프 바 차트 */}
-          <View style={{ backgroundColor: '#f8fafc', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f1f5f9' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 110, paddingBottom: 4 }}>
+            {/* 시계열 노드 & 커넥터 포인트 overlay */}
+            <View style={{ position: 'absolute', top: 10, left: 32, right: 8, bottom: 6, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around' }}>
               {[
-                { day: '월', score: 85, height: '70%', isCompleted: true,  color: '#0d9488' },
-                { day: '화', score: 90, height: '80%', isCompleted: true,  color: '#0d9488' },
-                { day: '수', score: 95, height: '95%', isCompleted: true,  color: '#0284c7', isPeak: true },
-                { day: '목', score: 88, height: '75%', isCompleted: true,  color: '#0d9488' },
-                { day: '금', score: 92, height: '85%', isCompleted: true,  color: '#0d9488' },
-                { day: '토', score: 70, height: '50%', isCompleted: true,  color: '#0d9488' },
-                { day: '일', score: 0,  height: '10%', isCompleted: false, color: '#cbd5e1' },
-              ].map((item) => (
-                <View key={item.day} style={{ alignItems: 'center', flex: 1 }}>
-                  {/* 상단 점수 라벨 */}
-                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: item.isPeak ? '#0284c7' : item.isCompleted ? '#0f766e' : '#94a3b8', marginBottom: 4 }}>
-                    {item.isCompleted ? `${item.score}` : '-'}
-                  </Text>
-                  
-                  {/* 막대 그래프 트랙 & 피처 트랙 */}
-                  <View style={{ width: 14, height: 70, backgroundColor: '#e2e8f0', borderRadius: 7, justifyContent: 'flex-end', overflow: 'hidden' }}>
-                    <View 
-                      style={{ 
-                        width: '100%', 
-                        height: item.height, 
-                        backgroundColor: item.color, 
-                        borderRadius: 7 
-                      }} 
-                    />
-                  </View>
+                { day: '월', score: 85, heightPercent: '70%', isCompleted: true  },
+                { day: '화', score: 90, heightPercent: '80%', isCompleted: true  },
+                { day: '수', score: 95, heightPercent: '95%', isCompleted: true, isPeak: true },
+                { day: '목', score: 88, heightPercent: '75%', isCompleted: true  },
+                { day: '금', score: 92, heightPercent: '85%', isCompleted: true  },
+                { day: '토', score: 70, heightPercent: '50%', isCompleted: true  },
+                { day: '일', score: 0,  heightPercent: '10%', isCompleted: false },
+              ].map((pt) => (
+                <View key={pt.day} style={{ alignItems: 'center', flex: 1 }}>
+                  {/* 점수 태그 */}
+                  {pt.isCompleted ? (
+                    <View style={{ backgroundColor: pt.isPeak ? '#0284c7' : '#0d9488', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, marginBottom: 4 }}>
+                      <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: '#ffffff' }}>{pt.score}점</Text>
+                    </View>
+                  ) : (
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: '#cbd5e1', marginBottom: 4 }}>-</Text>
+                  )}
 
-                  {/* 요일 라벨 */}
-                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: item.isPeak ? '#0284c7' : item.isCompleted ? '#0d9488' : '#e2e8f0', alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
-                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: item.isCompleted ? '#ffffff' : '#64748b' }}>
-                      {item.day}
-                    </Text>
+                  {/* 수직 노드 차트 커넥터 */}
+                  <View style={{ width: 12, height: pt.heightPercent, backgroundColor: pt.isPeak ? '#0284c7' : pt.isCompleted ? '#0d9488' : '#cbd5e1', borderRadius: 6, opacity: pt.isCompleted ? 0.9 : 0.3 }} />
+
+                  {/* 요일 노드 포인트 */}
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: pt.isPeak ? '#0284c7' : pt.isCompleted ? '#0d9488' : '#e2e8f0', alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: pt.isCompleted ? '#ffffff' : '#64748b' }}>{pt.day}</Text>
                   </View>
                 </View>
               ))}
             </View>
           </View>
         </View>
-      </View>
+
+        {/* 클릭 유도 안내 패널 */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0f9ff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#bae6fd', marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="analytics" size={16} color="#0284c7" />
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#0369a1' }}>
+              차트 클릭 시 4종 게임별 세부 분석 보고서 보기
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color="#0369a1" />
+        </View>
+      </TouchableOpacity>
 
       {/* ── 3. 대화 기록 & 음성 다시듣기 ── */}
       <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 14 }}>
@@ -567,11 +560,12 @@ export default function DashboardScreen({ navigation, route }) {
   const [userMode, setUserRoleMode] = useState(rawRole === 'guardian' ? 'guardian' : 'senior');
   const [activeTab, setActiveTab]   = useState('home');
 
-  // 모달 상태 3종
-  const [isPinModalOpen, setIsPinModalOpen]       = useState(false);
-  const [pinInput, setPinInput]                   = useState('');
-  const [pinError, setPinError]                   = useState('');
-  const [isHealthDetailOpen, setIsHealthDetailOpen] = useState(false);
+  // 모달 상태 4종
+  const [isPinModalOpen, setIsPinModalOpen]         = useState(false);
+  const [pinInput, setPinInput]                     = useState('');
+  const [pinError, setPinError]                     = useState('');
+  const [isHealthDetailOpen, setIsHealthDetailOpen]   = useState(false);
+  const [isGameDetailOpen, setIsGameDetailOpen]     = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState(null);
 
   // 모드 전환 시 PIN 검증
@@ -627,6 +621,7 @@ export default function DashboardScreen({ navigation, route }) {
           <GuardianHomeTab 
             navigation={navigation} 
             onOpenHealthDetail={() => setIsHealthDetailOpen(true)}
+            onOpenGameDetail={() => setIsGameDetailOpen(true)}
             onOpenTranscript={(log) => setSelectedTranscript(log)}
           />
         )
@@ -779,7 +774,105 @@ export default function DashboardScreen({ navigation, route }) {
         </SafeAreaView>
       </Modal>
 
-      {/* ── 3. 대화 전문 상세 모달 ── */}
+      {/* ── 3. 두뇌 훈련 게임 4종 세부 분석 보고서 모달 ── */}
+      <Modal visible={isGameDetailOpen} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image source={CARDS_ICON} style={{ width: 28, height: 28 }} resizeMode="contain" />
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a' }}>두뇌 게임 4종 세부 분석 보고서</Text>
+            </View>
+            <TouchableOpacity onPress={() => setIsGameDetailOpen(false)} style={S.iconBtn}>
+              <Ionicons name="close" size={24} color="#0f172a" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+            {/* 총점 요약 배너 */}
+            <View style={{ backgroundColor: '#0284c7', borderRadius: 20, padding: 20, marginBottom: 20 }}>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#e0f2fe', fontWeight: '700', marginBottom: 4 }}>
+                주간 두뇌 훈련 종합 성과 지수
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 32, fontWeight: '900', color: '#ffffff' }}>90점</Text>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, color: '#e0f2fe', fontWeight: '700' }}>/ 100점 만점 (상위 5% 최우수)</Text>
+              </View>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#f0f9ff', marginTop: 8, lineHeight: 18 }}>
+                어르신의 기억력, 집중력, 순발력 전 분야가 고르게 향상되고 있으며 출석 달성률 92%를 기록 중입니다.
+              </Text>
+            </View>
+
+            {/* 영역별 인지 지표 진행 바 */}
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 12 }}>
+              영역별 인지 능력 분석
+            </Text>
+
+            <View style={{ backgroundColor: '#ffffff', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 24, gap: 14 }}>
+              {[
+                { domain: '시각 단기 기억력', val: '88점', percent: '88%', color: '#0d9488' },
+                { domain: '주의 집중 제어력', val: '95점', percent: '95%', color: '#0284c7' },
+                { domain: '작업 기억 순서유지', val: '90점', percent: '90%', color: '#7c3aed' },
+                { domain: '수리 연산 순발력', val: '92점', percent: '92%', color: '#d97706' },
+              ].map(item => (
+                <View key={item.domain}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: '#334155' }}>{item.domain}</Text>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: item.color }}>{item.val}</Text>
+                  </View>
+                  <View style={{ height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                    <View style={{ width: item.percent, height: '100%', backgroundColor: item.color, borderRadius: 4 }} />
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* 4종 게임 세부 성과 리스트 */}
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 12 }}>
+              게임 종목별 세부 성과 내역
+            </Text>
+
+            <View style={{ gap: 12, marginBottom: 24 }}>
+              {GAME_HISTORY_DATA.map(game => (
+                <View key={game.id} style={{ backgroundColor: '#ffffff', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', marginRight: 12, borderWidth: 1, borderColor: '#E2E7F0' }}>
+                      <Image source={game.iconAsset} style={{ width: 34, height: 34 }} resizeMode="contain" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a' }}>{game.name}</Text>
+                        <View style={{ backgroundColor: game.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '800', color: game.color }}>{game.grade}</Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#64748b', marginTop: 2 }}>영역: {game.category}</Text>
+                    </View>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 20, fontWeight: '900', color: game.color }}>{game.score}</Text>
+                  </View>
+
+                  <View style={{ backgroundColor: '#f8fafc', padding: 12, borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#475569', fontWeight: '600' }}>특이 분석: {game.desc}</Text>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#0284c7', fontWeight: '800' }}>{game.time}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* 전문 권장 소견 */}
+            <View style={{ backgroundColor: '#f0f9ff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#bae6fd', marginBottom: 30 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <Ionicons name="bulb-outline" size={18} color="#0284c7" />
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#0369a1' }}>두뇌 케어 가이드 소견</Text>
+              </View>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#0c4a6e', lineHeight: 20 }}>
+                어르신은 시각적 주의 집약력 및 반응속도가 매우 뛰어납니다. 주 4회 이상 두뇌 게임을 꾸준히 이어나갈 수 있도록 격려해 주시면 자극 둔화를 방지하는 데 매우 효과적입니다.
+              </Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* ── 4. 대화 전문 상세 모달 ── */}
       <Modal visible={!!selectedTranscript} animationType="slide" transparent={false}>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
@@ -848,8 +941,6 @@ const S = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
   },
   headerLeft:  { flexDirection: 'row', alignItems: 'center' },
-  guardianTag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginLeft: 10 },
-  guardianTagText: { fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
