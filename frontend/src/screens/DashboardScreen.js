@@ -442,15 +442,57 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript }) {
           ))}
         </View>
 
-        {/* 주간 연속 출석 습관 */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#64748b', fontWeight: '600' }}>주간 두뇌 훈련 출석</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {['월', '화', '수', '목', '금', '토', '일'].map((day, idx) => (
-              <View key={day} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: idx < 5 ? '#0d9488' : '#e2e8f0', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: idx < 5 ? '#ffffff' : '#94a3b8' }}>{day}</Text>
-              </View>
-            ))}
+        {/* ── 주간 두뇌 훈련 점수 시각화 막대 그래프 ── */}
+        <View style={{ marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="bar-chart" size={16} color="#0d9488" />
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#0f172a', fontWeight: '800' }}>주간 두뇌 점수 추이</Text>
+            </View>
+            <View style={{ backgroundColor: '#e6f4f1', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '800', color: '#0d9488' }}>주간 평균 90점 📈</Text>
+            </View>
+          </View>
+
+          {/* 시각적 막대 그래프 바 차트 */}
+          <View style={{ backgroundColor: '#f8fafc', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f1f5f9' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 110, paddingBottom: 4 }}>
+              {[
+                { day: '월', score: 85, height: '70%', isCompleted: true,  color: '#0d9488' },
+                { day: '화', score: 90, height: '80%', isCompleted: true,  color: '#0d9488' },
+                { day: '수', score: 95, height: '95%', isCompleted: true,  color: '#0284c7', isPeak: true },
+                { day: '목', score: 88, height: '75%', isCompleted: true,  color: '#0d9488' },
+                { day: '금', score: 92, height: '85%', isCompleted: true,  color: '#0d9488' },
+                { day: '토', score: 70, height: '50%', isCompleted: true,  color: '#0d9488' },
+                { day: '일', score: 0,  height: '10%', isCompleted: false, color: '#cbd5e1' },
+              ].map((item) => (
+                <View key={item.day} style={{ alignItems: 'center', flex: 1 }}>
+                  {/* 상단 점수 라벨 */}
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: item.isPeak ? '#0284c7' : item.isCompleted ? '#0f766e' : '#94a3b8', marginBottom: 4 }}>
+                    {item.isCompleted ? `${item.score}` : '-'}
+                  </Text>
+                  
+                  {/* 막대 그래프 트랙 & 피처 트랙 */}
+                  <View style={{ width: 14, height: 70, backgroundColor: '#e2e8f0', borderRadius: 7, justifyContent: 'flex-end', overflow: 'hidden' }}>
+                    <View 
+                      style={{ 
+                        width: '100%', 
+                        height: item.height, 
+                        backgroundColor: item.color, 
+                        borderRadius: 7 
+                      }} 
+                    />
+                  </View>
+
+                  {/* 요일 라벨 */}
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: item.isPeak ? '#0284c7' : item.isCompleted ? '#0d9488' : '#e2e8f0', alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: item.isCompleted ? '#ffffff' : '#64748b' }}>
+                      {item.day}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </View>
