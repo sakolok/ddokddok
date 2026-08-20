@@ -361,44 +361,6 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc' }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
       
-      {/* ── 1. 어르신 실시간 안부 상태 & 전화 숏컷 ── */}
-      <View style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#e6f4f1', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#0d9488' }} />
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#0f766e' }}>
-              안심 케어 연결됨 · {latestLogTime}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 21, fontWeight: '800', color: '#0f172a', marginBottom: 4 }}>
-          {`${userName}님의 오늘 안부`}
-        </Text>
-        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, color: '#475569', fontWeight: '600', lineHeight: 22, marginBottom: 16 }}>
-          {realLogs.length > 0 ? '어르신 기분이 아주 좋아 보이십니다 😊' : '오늘 아직 나눈 음성 대화가 없습니다.'}
-        </Text>
-
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity 
-            style={{ flex: 1, backgroundColor: '#0d9488', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
-            onPress={() => Linking.openURL('tel:01012345678')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="call" size={16} color="#ffffff" />
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#ffffff' }}>전화걸기</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={{ flex: 1, backgroundColor: '#fff1f2', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: '#fecdd3' }}
-            onPress={() => alert('비상 알림이 보호자 및 케어 센터로 전달되었습니다.')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="alert-circle" size={16} color="#e11d48" />
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#e11d48' }}>비상 알림</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* ── 2. KDSQ 인지 건강 검사 결과 (클릭 시 문항별 답변 세부사항 모달 오픈) ── */}
       <TouchableOpacity 
