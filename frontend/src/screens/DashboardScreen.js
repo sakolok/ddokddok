@@ -562,30 +562,11 @@ export default function DashboardScreen({ navigation, route }) {
       {activeTab === 'home' && (
         <View style={S.header}>
           <View style={S.headerLeft}>
+            {/* 똑똑똑 브랜드 로고 */}
             <Text style={{ fontFamily: FONT_FAMILY, fontSize: 23, fontWeight: '900', letterSpacing: -0.5 }}>
               <Text style={{ color: userMode === 'senior' ? '#3E4C7D' : '#0D9488' }}>똑똑</Text>
               <Text style={{ color: '#F59E0B' }}>똑</Text>
             </Text>
-
-            {/* 역할 모드 전환 버튼 (PIN 검증 포함) */}
-            <TouchableOpacity 
-              style={[
-                S.guardianTag, 
-                { backgroundColor: userMode === 'guardian' ? '#e6f4f1' : '#ebf0f7' }
-              ]} 
-              onPress={handleToggleMode}
-              activeOpacity={0.8}
-            >
-              <Ionicons 
-                name={userMode === 'guardian' ? 'shield-checkmark' : 'person'} 
-                size={14} 
-                color={userMode === 'guardian' ? '#0d9488' : '#3e4c7d'} 
-                style={{ marginRight: 4 }}
-              />
-              <Text style={[S.guardianTagText, { color: userMode === 'guardian' ? '#0d9488' : '#3e4c7d' }]}>
-                {userMode === 'guardian' ? '어르신 전환' : '보호자 전환'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           <View style={S.headerRight}>
