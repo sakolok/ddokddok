@@ -345,7 +345,7 @@ function SeniorHomeTab({ navigation }) {
   );
 }
 
-// ── 보호자 전용 대시보드 탭 (Guardian Home Tab - 한 줄 깔끔 정렬 & 텍스트 겹침 완전 방지) ──────────────────────
+// ── 보호자 전용 대시보드 탭 (Guardian Home Tab - 우측 뱃지 완전히 제거 및 100% 여유로운 한 줄 레이아웃) ──────────────────────
 function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onOpenGameDetail }) {
   const { currentUser } = useUser();
   const userName = currentUser?.name || '어르신';
@@ -369,17 +369,14 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onO
         onPress={onOpenHealthDetail}
         activeOpacity={0.88}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 6 }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E7F0' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={{ width: 42, height: 40, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E7F0' }}>
               <Image source={CHECKLIST_ICON} style={{ width: 32, height: 32 }} resizeMode="contain" />
             </View>
-            <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a', flexShrink: 1 }}>
+            <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#0f172a', flex: 1 }}>
               KDSQ 인지 건강 검사
             </Text>
-          </View>
-          <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#15803d' }}>정상 / 양호</Text>
           </View>
         </View>
 
@@ -414,22 +411,19 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onO
         onPress={onOpenGameDetail}
         activeOpacity={0.88}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 6 }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E7F0' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={{ width: 42, height: 40, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E7F0' }}>
               <Image source={CARDS_ICON} style={{ width: 32, height: 32 }} resizeMode="contain" />
             </View>
-            <View style={{ flexShrink: 1 }}>
-              <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a' }}>
+            <View style={{ flex: 1 }}>
+              <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#0f172a' }}>
                 두뇌 훈련 점수 시계열 추이
               </Text>
               <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#64748b', fontWeight: '500', marginTop: 2 }}>
                 월~일 주간 점수 변화 기록
               </Text>
             </View>
-          </View>
-          <View style={{ backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#0284c7' }}>평균 90점 📈</Text>
           </View>
         </View>
 
