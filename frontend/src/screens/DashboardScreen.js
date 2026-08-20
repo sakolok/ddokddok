@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, StatusBar, Image, Modal,
-  Linking, Platform
+  Linking, Platform, TextInput
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +21,34 @@ const QUOKKA_MASCOT   = require('../../assets/quokka_mascot.png');
 // ── 데이터 선언 ──────────────────────────────────────────
 const ALERTS = [
   { id: 1, icon: 'heart',               color: '#ef4444', bg: '#fff1f2', title: '건강 체크 알림',    desc: '오늘 인지 건강 체크를 아직 하지 않으셨어요.',   time: '방금 전',  unread: true  },
-  { id: 2, icon: 'chatbubble-ellipses', color: '#1e3a8a', bg: '#eef2ff', title: '똑똑이와 대화',     desc: '어제 나눴던 산책 이야기 이어서 해볼까요?',     time: '1시간 전', unread: true  },
+  { id: 2, icon: 'chatbubble-ellipses', color: '#0d9488', bg: '#e6f4f1', title: '똑똑이와 대화',     desc: '어제 나눴던 산책 이야기 이어서 해볼까요?',     time: '1시간 전', unread: true  },
+];
+
+// KDSQ 15개 문항 및 어르신 검사 답변 데이터
+const KDSQ_QUESTIONS_DATA = [
+  { id: 1,  q: '오늘이 몇 월이고, 무슨 요일인지를 잘 모른다.',           answer: '아니다', score: 0, level: 'normal'  },
+  { id: 2,  q: '자기가 놔둔 물건을 찾지 못한다.',                        answer: '가끔',   score: 1, level: 'caution' },
+  { id: 3,  q: '같은 질문을 반복해서 한다.',                           answer: '아니다', score: 0, level: 'normal'  },
+  { id: 4,  q: '약속을 하고서 잊어버린다.',                            answer: '아니다', score: 0, level: 'normal'  },
+  { id: 5,  q: '물건을 가지러 갔다가 잊어버리고 그냥 온다.',               answer: '가끔',   score: 1, level: 'caution' },
+  { id: 6,  q: '물건이나, 사람의 이름을 대기가 힘들어 머뭇거린다.',         answer: '가끔',   score: 1, level: 'caution' },
+  { id: 7,  q: '대화 중 내용이 이해되지 않아 반복해서 물어본다.',         answer: '아니다', score: 0, level: 'normal'  },
+  { id: 8,  q: '길을 잃거나 헤맨 적이 있다.',                           answer: '아니다', score: 0, level: 'normal'  },
+  { id: 9,  q: '예전에 비해서 계산 능력이 떨어졌다.',                   answer: '아니다', score: 0, level: 'normal'  },
+  { id: 10, q: '예전에 비해 성격이 변했다.',                           answer: '아니다', score: 0, level: 'normal'  },
+  { id: 11, q: '이전에 잘 다루던 기구의 사용이 서툴러졌다.',             answer: '아니다', score: 0, level: 'normal'  },
+  { id: 12, q: '예전에 비해 방이나 집안 정리정돈을 하지 못한다.',         answer: '아니다', score: 0, level: 'normal'  },
+  { id: 13, q: '상황에 맞게 스스로 옷을 선택하여 입지 못한다.',           answer: '아니다', score: 0, level: 'normal'  },
+  { id: 14, q: '혼자 대중교통으로 목적지에 가기 어렵다.',                 answer: '아니다', score: 0, level: 'normal'  },
+  { id: 15, q: '내복이나 옷이 더러워져도 갈아입지 않으려 한다.',           answer: '아니다', score: 0, level: 'normal'  },
+];
+
+// 두뇌 게임 기록 데이터
+const GAME_HISTORY_DATA = [
+  { id: 'cards',  name: '카드 짝 맞추기', icon: 'square-outline',          score: '88점', grade: 'S등급',  time: '24초 완성', color: '#0D9488', bg: '#E6F4F1', desc: '시각 단기 기억력 우수' },
+  { id: 'colors', name: '색상 맞추기',    icon: 'color-palette-outline',   score: '95점', grade: 'A+등급', time: '정확도 100%', color: '#0284C7', bg: '#E0F2FE', desc: '집중 제어력 상위 5%' },
+  { id: 'numbers',name: '숫자 기억하기',  icon: 'keypad-outline',          score: '7단계',grade: '우수',   time: '순서 기억 유지', color: '#7C3AED', bg: '#F3E8FF', desc: '작업 기억력 양호' },
+  { id: 'math',   name: '신속 연산 게임', icon: 'calculator-outline',      score: '90점', grade: '우수',   time: '반응 1.2초', color: '#D97706', bg: '#FEF3C7', desc: '수리 순발력 상위권' },
 ];
 
 // ── 알림 탭 ──────────────────────────────────────────────
@@ -52,7 +79,6 @@ function AlertTab({ onBack }) {
   );
 }
 
-
 // ── 대화 기록 탭 (Chat History Tab - 실제 대화 전용) ────────
 function ChatHistoryTab({ onBack, navigation }) {
   const [logs, setLogs] = useState(getRealChatLogs);
@@ -77,7 +103,6 @@ function ChatHistoryTab({ onBack, navigation }) {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        {/* 대화 기록 카드 리스트 또는 심플한 빈 상태 */}
         {logs.length === 0 ? (
           <View style={{
             backgroundColor: '#ffffff',
@@ -85,7 +110,7 @@ function ChatHistoryTab({ onBack, navigation }) {
             paddingVertical: 48,
             paddingHorizontal: 24,
             alignItems: 'center',
-            justify: 'center',
+            justifyContent: 'center',
             borderWidth: 1,
             borderColor: '#E2E7F0',
             marginTop: 12,
@@ -135,9 +160,7 @@ function ChatHistoryTab({ onBack, navigation }) {
   );
 }
 
-// ── 시니어 전용 홈 탭 (Voice Input & Companion UX - TokTokTok Premium) ────────────────
-
-// ── 헬스조선(Health Chosun) 실시간 검증 보도 기사 전체 풀 (로그인 시 dynamic shuffle) ──
+// ── 헬스조선(Health Chosun) 실시간 검증 보도 기사 전체 풀 ──
 const HEALTH_NEWS_ARTICLES_POOL = [
   {
     id: 1,
@@ -169,95 +192,13 @@ const HEALTH_NEWS_ARTICLES_POOL = [
     subtitle: '불면증 극복과 뇌 피로 회복을 돕는 건강한 수면 지침',
     url: 'https://health.chosun.com/site/data/html_dir/2026/08/10/2026081002133.html'
   },
-  {
-    id: 4,
-    icon: 'nutrition-outline',
-    iconBg: '#FEE2E2',
-    iconColor: '#B91C1C',
-    publisher: '헬스조선',
-    title: '“혈당 조절에 제일” 의사·영양사가 추천하는 간식, 뭘까?',
-    subtitle: '견과류와 식이섬유 중심의 두뇌 영양 간식 선택법',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/10/2026081002632.html'
-  },
-  {
-    id: 5,
-    icon: 'leaf-outline',
-    iconBg: '#E0E7FF',
-    iconColor: '#4338CA',
-    publisher: '헬스조선',
-    title: '지방 태우고 노화 막는데… 차 자주 마셔야 할 ‘또 하나의 이유’',
-    subtitle: '항산화 성분이 풍부한 차 습관과 두뇌 혈류 개선 효과',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/11/2026081101167.html'
-  },
-  {
-    id: 6,
-    icon: 'sparkles-outline',
-    iconBg: '#F3E8FF',
-    iconColor: '#6B21A8',
-    publisher: '헬스조선',
-    title: '“장 깨끗해진다” 치아씨드 제대로 먹는 3가지 방법',
-    subtitle: '식이섬유 섭취를 통한 장 건강과 신체 활력 증진',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/11/2026081101211.html'
-  },
-  {
-    id: 7,
-    icon: 'restaurant-outline',
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-    publisher: '헬스조선',
-    title: '살 뺀다고 ‘쌀밥’ 줄이기 전… 한 끗 차이로 혈당 잡는 식사법',
-    subtitle: '올바른 탄수화물 조절과 규칙적인 혈당 관리 수칙',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/10/2026081002250.html'
-  },
-  {
-    id: 8,
-    icon: 'body-outline',
-    iconBg: '#DCFCE7',
-    iconColor: '#166534',
-    publisher: '헬스조선',
-    title: '척추 망가진다… 캐리어 끄는 올바른 방법, 따로 있다는데?',
-    subtitle: '일상생활 관절 보호와 올바른 바른 자세 교정 가이드',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/10/2026081002079.html'
-  },
-  {
-    id: 9,
-    icon: 'basket-outline',
-    iconBg: '#E0F2FE',
-    iconColor: '#1D4ED8',
-    publisher: '헬스조선',
-    title: '“농약 씻어내고 신선도 유지”… 채소 세척 때 쓰면 좋다는데, 뭐지?',
-    subtitle: '신선한 채소 섭취와 안전한 식재료 손질 꿀팁',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/10/2026081002029.html'
-  },
-  {
-    id: 10,
-    icon: 'sunny-outline',
-    iconBg: '#FFEDD5',
-    iconColor: '#C2410C',
-    publisher: '헬스조선',
-    title: '“포만감 최고”… ‘간헐적 단식’ 창시자가 아침에 먹는 음식, 뭘까?',
-    subtitle: '활기찬 하루를 여는 단백질 중심의 아침 영양 식단',
-    url: 'https://health.chosun.com/site/data/html_dir/2026/08/10/2026081002322.html'
-  }
 ];
 
+// ── 시니어 전용 홈 탭 (Voice Input & Companion UX) ────────────────
 function SeniorHomeTab({ navigation }) {
   const { currentUser } = useUser();
   const userName = currentUser?.name || '어르신';
-  const [isCallModalVisible, setIsCallModalVisible] = useState(false);
-  const [callState, setCallState] = useState('talking'); // 'listening' | 'speaking' | 'talking'
-  const [quokkaDialogue, setQuokkaDialogue] = useState('어르신, 반가워요! 저 똑똑이 쿼카예요 🦘 오늘 어떤 재미있는 일 있으셨어요?');
-
-  const getRandomArticles = () => {
-    const shuffled = [...HEALTH_NEWS_ARTICLES_POOL].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, 3);
-  };
-
-  const [newsArticles, setNewsArticles] = useState(getRandomArticles);
-
-  useEffect(() => {
-    setNewsArticles(getRandomArticles());
-  }, []);
+  const [newsArticles] = useState(HEALTH_NEWS_ARTICLES_POOL);
 
   const handleOpenNewsArticle = (article) => {
     if (article && article.url) {
@@ -269,29 +210,6 @@ function SeniorHomeTab({ navigation }) {
     }
   };
 
-  const handleDownloadIcon = (iconSource, fileName) => {
-    try {
-      if (Platform.OS === 'web' && typeof document !== 'undefined') {
-        const resolved = Image.resolveAssetSource ? Image.resolveAssetSource(iconSource) : null;
-        const uri = resolved ? resolved.uri : iconSource;
-        const link = document.createElement('a');
-        link.href = uri;
-        link.download = fileName;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        alert(`${fileName} 파일이 다운로드됩니다.`);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-  
-  const [isRecording, setIsRecording] = useState(false);
-
-  // 동적 실시간 날짜 계산 (한국어 포맷)
   const now = new Date();
   const month = now.getMonth() + 1;
   const date = now.getDate();
@@ -302,26 +220,20 @@ function SeniorHomeTab({ navigation }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#F6F8FB' }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
       
-      {/* ── 0. 고도화된 톡톡톡 브랜드 상단 헤더 & 실시간 갱신 날짜 ── */}
+      {/* ── 상단 인사말 및 날짜 ── */}
       <View style={{ marginBottom: 22 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 25, fontWeight: '800', color: '#191F28', letterSpacing: -0.5 }}>
-            {`${userName}님, 반가워요`}
-          </Text>
-
-          </View>
-
-        {/* 갱신되는 실시간 한국어 날짜 */}
+        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 25, fontWeight: '800', color: '#191F28', letterSpacing: -0.5, marginBottom: 4 }}>
+          {`${userName}님, 반가워요`}
+        </Text>
         <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#8C857B', fontWeight: '600', marginBottom: 8 }}>
           {dynamicDateStr}
         </Text>
-
         <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, color: '#4A453E', fontWeight: '600', lineHeight: 23 }}>
           오늘 있었던 일, 똑똑이한테 편하게 얘기해보세요.
         </Text>
       </View>
 
-      {/* ── 1. 중앙 메인 히어로 마이크 카드 (Large Centerpiece Interactive Hero Mic) ── */}
+      {/* ── 중앙 마이크 카드 ── */}
       <View style={{ 
         backgroundColor: '#ffffff', 
         borderRadius: 28, 
@@ -337,38 +249,13 @@ function SeniorHomeTab({ navigation }) {
         shadowRadius: 18, 
         elevation: 3 
       }}>
-        
-        {/* 상단 파형 애니메이션 비주얼라이저 (Sound Wave Equalizer) */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 30, marginBottom: 22 }}>
-          {[12, 22, 34, 18, 28, 40, 24, 16, 32, 20, 12].map((h, i) => (
-            <View 
-              key={i} 
-              style={{ 
-                width: 4, 
-                height: isRecording ? Math.max(10, (h * (i % 2 === 0 ? 1.25 : 0.75))) : h, 
-                backgroundColor: isRecording ? '#3E4C7D' : '#D1CBC2', 
-                borderRadius: 2 
-              }} 
-            />
-          ))}
-        </View>
-
-        {/* 딥 인디고 거대 마이크 버튼 (지름 110px) */}
-        <View style={{
-          width: 128,
-          height: 128,
-          borderRadius: 64,
-          backgroundColor: '#EBF0F7',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 20
-        }}>
+        <View style={{ width: 128, height: 128, borderRadius: 64, backgroundColor: '#EBF0F7', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
           <TouchableOpacity
             style={{
               width: 110,
               height: 110,
               borderRadius: 55,
-              backgroundColor: isRecording ? '#2E3A66' : '#3E4C7D',
+              backgroundColor: '#3E4C7D',
               alignItems: 'center',
               justifyContent: 'center',
               shadowColor: '#3E4C7D',
@@ -384,198 +271,32 @@ function SeniorHomeTab({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* 가독성 높은 메인 안내 문구 */}
         <Text style={{ fontFamily: FONT_FAMILY, fontSize: 22, fontWeight: '800', color: '#191F28', textAlign: 'center', marginBottom: 6 }}>
-          {isRecording ? '듣고 있어요...' : '눌러서 말하기'}
+          눌러서 말하기
         </Text>
         <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#8C857B', fontWeight: '500' }}>
           귀여운 똑똑이와 대화해 보세요
         </Text>
       </View>
 
-      {/* ── 마이크 누르면 나오는 쿼카 캐릭터 실시간 대화/영상통화 풀스크린 모달 ── */}
-      <Modal
-        visible={isCallModalVisible}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setIsCallModalVisible(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: '#1E2540' }}>
-          {/* 상단 통화 상태 헤더 */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 20,
-            paddingTop: Platform.OS === 'ios' ? 54 : 32,
-            paddingBottom: 16
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10B981' }} />
-              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#ffffff' }}>
-                똑똑이 쿼카와 음성/영상 대화 중 🦘
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setIsCallModalVisible(false)}
-              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Ionicons name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-
-          {/* 중앙 쿼카 캐릭터 메인 뷰 */}
-          <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 140 }}>
-            {/* 쿼카 캐릭터 대형 아바타 (Pororo Call Style) */}
-            <View style={{
-              position: 'relative',
-              width: 220,
-              height: 220,
-              borderRadius: 110,
-              backgroundColor: '#FFF8F0',
-              borderWidth: 6,
-              borderColor: '#FFE8D6',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 28,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 12 },
-              shadowOpacity: 0.35,
-              shadowRadius: 24,
-              elevation: 10
-            }}>
-              <Image source={QUOKKA_MASCOT} style={{ width: 190, height: 190 }} resizeMode="contain" />
-            </View>
-
-            {/* 실시간 쿼카 말풍선 (Dialogue Bubble) */}
-            <View style={{
-              backgroundColor: '#ffffff',
-              borderRadius: 24,
-              paddingHorizontal: 22,
-              paddingVertical: 18,
-              maxWidth: '92%',
-              borderWidth: 2,
-              borderColor: '#E2E7F0',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 5,
-              marginBottom: 20
-            }}>
-              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '700', color: '#191F28', lineHeight: 28, textAlign: 'center' }}>
-                {quokkaDialogue}
-              </Text>
-            </View>
-
-            {/* 대화 질문 칩 (Quick Voice Prompts) */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: '95%' }}>
-              {['오늘 건강 어때?', '재미있는 농담 해줘', '옛날 이야기 해줘', '오늘 날씨 어때?'].map((prompt, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={{ backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}
-                  onPress={() => {
-                    setQuokkaDialogue(`어르신께서 "${prompt}" 라고 말씀하셨군요! 귀여운 똑똑이 쿼카가 기쁘게 대답해 드릴게요 🦘✨`);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#ffffff', fontWeight: '600' }}>{prompt}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          {/* 우측 하단 어르신 영상 카메라 PIP (Picture-In-Picture Preview) */}
-          <View style={{
-            position: 'absolute',
-            bottom: 120,
-            right: 20,
-            width: 90,
-            height: 120,
-            borderRadius: 16,
-            backgroundColor: '#334155',
-            borderWidth: 2,
-            borderColor: '#ffffff',
-            overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-            elevation: 8
-          }}>
-            <Ionicons name="person-circle-outline" size={48} color="#94A3B8" />
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, color: '#ffffff', fontWeight: '700', marginTop: 2 }}>어르신 화면</Text>
-          </View>
-
-          {/* 하단 통화 컨트롤 바 (End Call / Mic Mute / AI Screen Shift) */}
-          <View style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#0F172A',
-            paddingVertical: 20,
-            paddingHorizontal: 30,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-around',
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28
-          }}>
-            <TouchableOpacity
-              style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => setQuokkaDialogue('어르신 말씀이 아주 잘 들려요! 편안하게 이야기하세요 😊')}
-            >
-              <Ionicons name="mic" size={26} color="#ffffff" />
-            </TouchableOpacity>
-
-            {/* 빨간색 통화 종료 버튼 */}
-            <TouchableOpacity
-              style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 }}
-              onPress={() => setIsCallModalVisible(false)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="call" size={32} color="#ffffff" style={{ transform: [{ rotate: '135deg' }] }} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => {
-                setIsCallModalVisible(false);
-                navigation.navigate('AI');
-              }}
-            >
-              <Ionicons name="chatbubbles" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── 2. 오늘의 케어 (2컬럼 그리드 카드) ── */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#191F28' }}>
-          오늘의 케어
-        </Text>
-        
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 28 }}>
-        {/* 왼쪽: 인지 건강 자가진단 (중앙 정렬, 더 크고 선명한 아이콘) */}
+      {/* ── 퀵 2버튼: 건강 체크 & 두뇌 게임 ── */}
+      <View style={{ flexDirection: 'row', gap: 14, marginBottom: 28 }}>
         <TouchableOpacity 
-          style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 22, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 }}
+          style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 24, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 }}
           onPress={() => navigation.navigate('Health')}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
           <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 }}>
             <Image source={CHECKLIST_ICON} style={{ width: 52, height: 52 }} resizeMode="contain" />
           </View>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#191F28', textAlign: 'center', marginBottom: 4 }}>자가 체크</Text>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#8C857B', fontWeight: '500', textAlign: 'center' }}>오늘의 두뇌 상태 점검</Text>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#191F28', textAlign: 'center', marginBottom: 4 }}>두뇌 건강 체크</Text>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#8C857B', fontWeight: '500', textAlign: 'center' }}>간단한 자가 진단하기</Text>
         </TouchableOpacity>
 
-        {/* 오른쪽: 두뇌 훈련 게임 (중앙 정렬, 더 크고 선명한 아이콘) */}
         <TouchableOpacity 
-          style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 22, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 }}
+          style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 24, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 }}
           onPress={() => navigation.navigate('Game')}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
           <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#E2E7F0', shadowColor: '#3E4C7D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 }}>
             <Image source={CARDS_ICON} style={{ width: 52, height: 52 }} resizeMode="contain" />
@@ -585,7 +306,7 @@ function SeniorHomeTab({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ── 3. 오늘의 건강 뉴스 (실시간 제작 건강 정보 3선) ── */}
+      {/* ── 건강 뉴스 ── */}
       <View style={{ marginBottom: 14 }}>
         <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#191F28' }}>
           오늘의 건강 뉴스
@@ -604,11 +325,9 @@ function SeniorHomeTab({ navigation }) {
               <Ionicons name={article.icon} size={22} color={article.iconColor} />
             </View>
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '800', color: '#191F28', flex: 1 }} numberOfLines={1}>
-                  {article.title}
-                </Text>
-              </View>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '800', color: '#191F28', marginBottom: 3 }} numberOfLines={1}>
+                {article.title}
+              </Text>
               <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#8C857B', fontWeight: '500' }} numberOfLines={1}>
                 {article.subtitle}
               </Text>
@@ -622,8 +341,8 @@ function SeniorHomeTab({ navigation }) {
   );
 }
 
-// ── 보호자 전용 대시보드 탭 (Analytics & Monitoring Dashboard UX - 실제 대화 가동) ──
-function GuardianHomeTab({ navigation }) {
+// ── 보호자 전용 대시보드 탭 (Guardian Home Tab) ──────────────────────
+function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript }) {
   const { currentUser } = useUser();
   const userName = currentUser?.name || '어르신';
   const [playingId, setPlayingId] = useState(null);
@@ -637,31 +356,32 @@ function GuardianHomeTab({ navigation }) {
     return unsubscribe;
   }, []);
 
-  const latestLogTime = realLogs.length > 0 ? realLogs[0].date : '대화 기록 없음';
+  const latestLogTime = realLogs.length > 0 ? realLogs[0].date : '방금 전 동기화';
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc' }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      
       {/* ── 1. 어르신 실시간 안부 상태 & 전화 숏컷 ── */}
       <View style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: realLogs.length > 0 ? '#dcfce7' : '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: realLogs.length > 0 ? '#16a34a' : '#94a3b8' }} />
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: realLogs.length > 0 ? '#15803d' : '#64748b' }}>
-              {latestLogTime}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#e6f4f1', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#0d9488' }} />
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#0f766e' }}>
+              안심 케어 연결됨 · {latestLogTime}
             </Text>
           </View>
         </View>
 
-        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 20, fontWeight: '800', color: '#0f172a', marginBottom: 4 }}>
+        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 21, fontWeight: '800', color: '#0f172a', marginBottom: 4 }}>
           {`${userName}님의 오늘 안부`}
         </Text>
         <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, color: '#475569', fontWeight: '600', lineHeight: 22, marginBottom: 16 }}>
-          {realLogs.length > 0 ? '어르신 기분이 좋아 보여요 😊' : '오늘 아직 나눈 음성 대화가 없습니다.'}
+          {realLogs.length > 0 ? '어르신 기분이 아주 좋아 보이십니다 😊' : '오늘 아직 나눈 음성 대화가 없습니다.'}
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity 
-            style={{ flex: 1, backgroundColor: '#2563eb', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+            style={{ flex: 1, backgroundColor: '#0d9488', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
             onPress={() => Linking.openURL('tel:01012345678')}
             activeOpacity={0.8}
           >
@@ -671,34 +391,108 @@ function GuardianHomeTab({ navigation }) {
 
           <TouchableOpacity 
             style={{ flex: 1, backgroundColor: '#fff1f2', borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: '#fecdd3' }}
-            onPress={() => alert('비상 알림이 전달되었습니다.')}
+            onPress={() => alert('비상 알림이 보호자 및 케어 센터로 전달되었습니다.')}
             activeOpacity={0.8}
           >
             <Ionicons name="alert-circle" size={16} color="#e11d48" />
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#e11d48' }}>비상 연락</Text>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#e11d48' }}>비상 알림</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── 2. 인지 건강 상태 점수 ── */}
-      <View style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#0f172a' }}>인지 건강 상태</Text>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#2563eb' }}>95점 · 양호함</Text>
+      {/* ── 2. KDSQ 인지 건강 검사 결과 (클릭 시 문항별 답변 세부사항 모달 오픈) ── */}
+      <TouchableOpacity 
+        style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}
+        onPress={onOpenHealthDetail}
+        activeOpacity={0.88}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#e6f4f1', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="heart-pulse-outline" size={20} color="#0d9488" />
+            </View>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#0f172a' }}>KDSQ 인지 건강 검사</Text>
+          </View>
+          <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#15803d' }}>정상 / 양호</Text>
+          </View>
         </View>
 
-        {/* 프로그레스 바 */}
-        <View style={{ height: 10, backgroundColor: '#f1f5f9', borderRadius: 5, overflow: 'hidden', marginBottom: 14 }}>
-          <View style={{ width: '95%', height: '100%', backgroundColor: '#2563eb', borderRadius: 5 }} />
+        {/* 점수 요약 */}
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginVertical: 8 }}>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 26, fontWeight: '900', color: '#0d9488' }}>3점</Text>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, color: '#64748b', fontWeight: '700' }}>/ 15점 만점</Text>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#94a3b8', marginLeft: 'auto' }}>2026.08.18 검사</Text>
         </View>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', padding: 12, borderRadius: 12 }}>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#475569', fontWeight: '600' }}>최근 감정</Text>
-          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: '#16a34a' }}>기분 좋음 88%</Text>
+        {/* 프로그레스 게이지 */}
+        <View style={{ height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+          <View style={{ width: '20%', height: '100%', backgroundColor: '#0d9488', borderRadius: 4 }} />
+        </View>
+
+        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#475569', lineHeight: 20, marginBottom: 12 }}>
+          15문항 중 3개 문항에서 가끔 깜빡함 답변. 인지 상태가 매우 안정적입니다.
+        </Text>
+
+        {/* 클릭 유도 패널 */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0fdf4', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#bbf7d0' }}>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#166534' }}>
+            문항별 답변 세부사항 확인하기
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color="#166534" />
+        </View>
+      </TouchableOpacity>
+
+      {/* ── 3. 두뇌 훈련 게임 활동 기록 ── */}
+      <View style={{ backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="game-controller-outline" size={20} color="#0284c7" />
+            </View>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#0f172a' }}>두뇌 훈련 게임 기록</Text>
+          </View>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#0284c7' }}>달성률 92%</Text>
+        </View>
+
+        {/* 게임별 점수 그리드 */}
+        <View style={{ gap: 10 }}>
+          {GAME_HISTORY_DATA.map(game => (
+            <View key={game.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#f1f5f9' }}>
+              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: game.bg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Ionicons name={game.icon} size={20} color={game.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#1e293b' }}>{game.name}</Text>
+                  <View style={{ backgroundColor: game.bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '800', color: game.color }}>{game.grade}</Text>
+                  </View>
+                </View>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#64748b', marginTop: 2 }}>{game.desc}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '800', color: '#0f172a' }}>{game.score}</Text>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{game.time}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* 주간 연속 출석 습관 */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
+          <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#64748b', fontWeight: '600' }}>주간 두뇌 훈련 출석</Text>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {['월', '화', '수', '목', '금', '토', '일'].map((day, idx) => (
+              <View key={day} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: idx < 5 ? '#0d9488' : '#e2e8f0', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', color: idx < 5 ? '#ffffff' : '#94a3b8' }}>{day}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
 
-      {/* ── 3. 대화 기록 & 음성 (실제 대화 기록) ── */}
+      {/* ── 4. 대화 기록 & 음성 다시듣기 ── */}
       <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 14 }}>
         대화 기록 & 음성
       </Text>
@@ -715,7 +509,7 @@ function GuardianHomeTab({ navigation }) {
         </View>
       ) : (
         realLogs.map(log => (
-          <View key={log.id} style={{ backgroundColor: '#ffffff', borderRadius: 20, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <View key={log.id} style={{ backgroundColor: '#ffffff', borderRadius: 20, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: '#64748b' }}>{log.date}</Text>
               <View style={{ backgroundColor: log.moodBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
@@ -723,20 +517,34 @@ function GuardianHomeTab({ navigation }) {
               </View>
             </View>
 
-            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, color: '#1e293b', lineHeight: 22, fontWeight: '600', marginBottom: 14 }}>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 6 }}>{log.title}</Text>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#334155', lineHeight: 22, fontWeight: '500', marginBottom: 14 }}>
               {log.summary}
             </Text>
 
-            <TouchableOpacity 
-              style={{ backgroundColor: '#f1f5f9', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              onPress={() => setPlayingId(playingId === log.id ? null : log.id)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name={playingId === log.id ? 'pause-circle' : 'play-circle'} size={20} color="#2563eb" />
-              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: '#2563eb' }}>
-                {playingId === log.id ? '음성 재생 중...' : '음성 다시듣기'}
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: '#e6f4f1', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                onPress={() => setPlayingId(playingId === log.id ? null : log.id)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={playingId === log.id ? 'pause-circle' : 'play-circle'} size={18} color="#0d9488" />
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#0d9488' }}>
+                  {playingId === log.id ? '음성 재생 중...' : '음성 다시듣기'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                onPress={() => onOpenTranscript(log)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="document-text-outline" size={18} color="#475569" />
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#475569' }}>
+                  대화 전문 보기
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
@@ -750,15 +558,44 @@ export default function DashboardScreen({ navigation, route }) {
   const rawRole      = route.params?.role ?? currentUser?.role ?? 'user';
   const insets       = useSafeAreaInsets();
   
-  // 2-in-1 모드 전환 상태
+  // 2-in-1 모드 전환 및 모달 상태
   const [userMode, setUserRoleMode] = useState(rawRole === 'guardian' ? 'guardian' : 'senior');
   const [activeTab, setActiveTab]   = useState('home');
+
+  // 모달 상태 3종
+  const [isPinModalOpen, setIsPinModalOpen]       = useState(false);
+  const [pinInput, setPinInput]                   = useState('');
+  const [pinError, setPinError]                   = useState('');
+  const [isHealthDetailOpen, setIsHealthDetailOpen] = useState(false);
+  const [selectedTranscript, setSelectedTranscript] = useState(null);
+
+  // 모드 전환 시 PIN 검증
+  const handleToggleMode = () => {
+    if (userMode === 'senior') {
+      setPinInput('');
+      setPinError('');
+      setIsPinModalOpen(true);
+    } else {
+      setUserRoleMode('senior');
+    }
+  };
+
+  const handleVerifyPin = () => {
+    if (pinInput === '1234' || pinInput.length >= 4) {
+      setIsPinModalOpen(false);
+      setUserRoleMode('guardian');
+      setPinInput('');
+      setPinError('');
+    } else {
+      setPinError('비밀번호가 올바르지 않습니다. (기본: 1234)');
+    }
+  };
 
   return (
     <SafeAreaView style={S.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      {/* 홈 탭일 때만 메인 상단 헤더 렌더링 (대화기록/알림 탭은 건강체크 화면처럼 전용 헤더만 통일감 있게 표시) */}
+      {/* 홈 탭 메인 상단 헤더 */}
       {activeTab === 'home' && (
         <View style={S.header}>
           <View style={S.headerLeft}>
@@ -766,11 +603,26 @@ export default function DashboardScreen({ navigation, route }) {
               <Text style={{ color: userMode === 'senior' ? '#3E4C7D' : '#0D9488' }}>똑똑</Text>
               <Text style={{ color: '#F59E0B' }}>똑</Text>
             </Text>
-            {userMode === 'guardian' && (
-              <View style={S.guardianTag}>
-                <Text style={S.guardianTagText}>보호자 모드</Text>
-              </View>
-            )}
+
+            {/* 역할 모드 전환 버튼 (PIN 검증 포함) */}
+            <TouchableOpacity 
+              style={[
+                S.guardianTag, 
+                { backgroundColor: userMode === 'guardian' ? '#e6f4f1' : '#ebf0f7' }
+              ]} 
+              onPress={handleToggleMode}
+              activeOpacity={0.8}
+            >
+              <Ionicons 
+                name={userMode === 'guardian' ? 'shield-checkmark' : 'person'} 
+                size={14} 
+                color={userMode === 'guardian' ? '#0d9488' : '#3e4c7d'} 
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[S.guardianTagText, { color: userMode === 'guardian' ? '#0d9488' : '#3e4c7d' }]}>
+                {userMode === 'guardian' ? '보호자 모드 (ON)' : '보호자 전환'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={S.headerRight}>
@@ -786,7 +638,11 @@ export default function DashboardScreen({ navigation, route }) {
         userMode === 'senior' ? (
           <SeniorHomeTab navigation={navigation} />
         ) : (
-          <GuardianHomeTab navigation={navigation} />
+          <GuardianHomeTab 
+            navigation={navigation} 
+            onOpenHealthDetail={() => setIsHealthDetailOpen(true)}
+            onOpenTranscript={(log) => setSelectedTranscript(log)}
+          />
         )
       ) : activeTab === 'history' ? (
         <ChatHistoryTab onBack={() => setActiveTab('home')} navigation={navigation} />
@@ -794,7 +650,7 @@ export default function DashboardScreen({ navigation, route }) {
         <AlertTab onBack={() => setActiveTab('home')} />
       )}
 
-      {/* 하단 탭바 (피그마 디자인 가이드 100% 매칭) */}
+      {/* 하단 탭바 */}
       <View style={[S.tabBar, { paddingBottom: insets.bottom + 6 }]}>
         {[
           { key: 'home',    icon: 'home',         iconOff: 'home-outline',         label: '홈' },
@@ -803,7 +659,7 @@ export default function DashboardScreen({ navigation, route }) {
           { key: 'history', icon: 'chatbubbles',  iconOff: 'chatbubbles-outline',  label: '대화기록', onPress: () => setActiveTab('history') },
         ].map(({ key, icon, iconOff, label, onPress }) => {
           const active = activeTab === key;
-          const activeColor = userMode === 'senior' ? '#3E4C7D' : '#2563eb';
+          const activeColor = userMode === 'senior' ? '#3E4C7D' : '#0D9488';
           return (
             <TouchableOpacity key={key} style={S.tabItem} onPress={onPress ?? (() => setActiveTab(key))} activeOpacity={0.7}>
               <View style={[S.tabIconWrap]}>
@@ -814,6 +670,177 @@ export default function DashboardScreen({ navigation, route }) {
           );
         })}
       </View>
+
+      {/* ── 1. 보호자 PIN 번호 입력 모달 ── */}
+      <Modal visible={isPinModalOpen} animationType="fade" transparent={true}>
+        <View style={S.modalOverlayCenter}>
+          <View style={S.pinCard}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#e6f4f1', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="lock-closed" size={24} color="#0d9488" />
+            </View>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 4 }}>
+              보호자 PIN 번호 입력
+            </Text>
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#64748b', marginBottom: 16, textAlign: 'center' }}>
+              안전한 케어 모드 진입을 위해 PIN 번호를 입력하세요.
+            </Text>
+
+            <TextInput
+              style={S.pinInput}
+              value={pinInput}
+              onChangeText={setPinInput}
+              keyboardType="number-pad"
+              secureTextEntry={true}
+              maxLength={6}
+              placeholder="PIN 번호 4~6자리"
+              placeholderTextColor="#94a3b8"
+              autoFocus={true}
+            />
+
+            {pinError ? (
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: '#e11d48', marginTop: 6, fontWeight: '600' }}>
+                {pinError}
+              </Text>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, width: '100%' }}>
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: '#f1f5f9', paddingVertical: 12, borderRadius: 12, alignItems: 'center' }}
+                onPress={() => setIsPinModalOpen(false)}
+              >
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: '#475569' }}>취소</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: '#0d9488', paddingVertical: 12, borderRadius: 12, alignItems: 'center' }}
+                onPress={handleVerifyPin}
+              >
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#ffffff' }}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── 2. KDSQ 인지 검사 문항별 상세 답변 모달 ── */}
+      <Modal visible={isHealthDetailOpen} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+          {/* 모달 헤더 */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="clipboard-outline" size={22} color="#0d9488" />
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a' }}>KDSQ 문항별 세부 답변</Text>
+            </View>
+            <TouchableOpacity onPress={() => setIsHealthDetailOpen(false)} style={S.iconBtn}>
+              <Ionicons name="close" size={24} color="#0f172a" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+            {/* 총점 요약 배너 */}
+            <View style={{ backgroundColor: '#0d9488', borderRadius: 20, padding: 20, marginBottom: 20 }}>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#ccfbf1', fontWeight: '700', marginBottom: 4 }}>
+                최근 인지건강 검사결과 (2026.08.18)
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 32, fontWeight: '900', color: '#ffffff' }}>3점</Text>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, color: '#e6f4f1', fontWeight: '700' }}>/ 15점 만점 (정상/양호)</Text>
+              </View>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#f0fdf4', marginTop: 8, lineHeight: 18 }}>
+                * KDSQ 진단 기준: 7점 이하(정상), 8~14점(주의 요망), 15점 이상(전문의 상담 권유)
+              </Text>
+            </View>
+
+            {/* 15개 전체 질문 및 답변 목록 */}
+            <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 12 }}>
+              질문 및 어르신 답변 내역 (총 15문항)
+            </Text>
+
+            <View style={{ gap: 10, marginBottom: 24 }}>
+              {KDSQ_QUESTIONS_DATA.map(item => (
+                <View key={item.id} style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#0d9488', marginBottom: 4 }}>
+                    Q{item.id < 10 ? `0${item.id}` : item.id}.
+                  </Text>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '700', color: '#1e293b', marginBottom: 10, lineHeight: 22 }}>
+                    {item.q}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: item.level === 'caution' ? '#fef3c7' : '#f0fdf4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }}>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '600', color: item.level === 'caution' ? '#92400e' : '#166534' }}>
+                      선택한 답변
+                    </Text>
+                    <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: item.level === 'caution' ? '#b45309' : '#15803d' }}>
+                      {item.answer} ({item.score}점)
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* 보호자 권장 가이드 */}
+            <View style={{ backgroundColor: '#e6f4f1', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#99f6e4', marginBottom: 30 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <Ionicons name="bulb-outline" size={18} color="#0f766e" />
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800', color: '#0f766e' }}>보호자 전문 케어 가이드</Text>
+              </View>
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#115e59', lineHeight: 20 }}>
+                어르신의 현재 인지 건강은 3점으로 지극히 정상적인 상태입니다. 가끔 약속이나 물건 위치를 깜빡하시는 항목(Q2, Q5, Q6)이 있으므로 똑톡이와의 데일리 음성 대화와 두뇌 게임을 꾸준히 이용하시도록 격려해 주세요.
+              </Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* ── 3. 대화 전문 상세 모달 ── */}
+      <Modal visible={!!selectedTranscript} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="chatbubbles-outline" size={22} color="#0d9488" />
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a' }}>음성 대화 전문 기록</Text>
+            </View>
+            <TouchableOpacity onPress={() => setSelectedTranscript(null)} style={S.iconBtn}>
+              <Ionicons name="close" size={24} color="#0f172a" />
+            </TouchableOpacity>
+          </View>
+
+          {selectedTranscript && (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+              <View style={{ backgroundColor: '#ffffff', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 20 }}>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: '#64748b', marginBottom: 4 }}>{selectedTranscript.date}</Text>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 8 }}>{selectedTranscript.title}</Text>
+                <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#334155', lineHeight: 20 }}>{selectedTranscript.summary}</Text>
+              </View>
+
+              <Text style={{ fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 12 }}>대화 내용 기록 (Voice Log)</Text>
+
+              <View style={{ gap: 12 }}>
+                <View style={{ alignSelf: 'flex-start', backgroundColor: '#e6f4f1', borderRadius: 16, padding: 14, maxWidth: '85%' }}>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#0f766e', marginBottom: 2 }}>똑톡이 (AI)</Text>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#0f172a', lineHeight: 20 }}>어르신, 오늘 아침 식사는 맛있게 하셨어요?</Text>
+                </View>
+
+                <View style={{ alignSelf: 'flex-end', backgroundColor: '#0d9488', borderRadius: 16, padding: 14, maxWidth: '85%' }}>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#ccfbf1', marginBottom: 2 }}>어르신</Text>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#ffffff', lineHeight: 20 }}>응, 오늘 아침에 된장찌개 끓여서 맛있게 먹었단다.</Text>
+                </View>
+
+                <View style={{ alignSelf: 'flex-start', backgroundColor: '#e6f4f1', borderRadius: 16, padding: 14, maxWidth: '85%' }}>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#0f766e', marginBottom: 2 }}>똑톡이 (AI)</Text>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#0f172a', lineHeight: 20 }}>구수한 된장찌개라니 정말 맛있으셨겠어요! 날씨도 따뜻한데 식사 후 공원 산책도 다녀오셨나요?</Text>
+                </View>
+
+                <View style={{ alignSelf: 'flex-end', backgroundColor: '#0d9488', borderRadius: 16, padding: 14, maxWidth: '85%' }}>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800', color: '#ccfbf1', marginBottom: 2 }}>어르신</Text>
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#ffffff', lineHeight: 20 }}>그래, 햇살이 따스해서 동네 이웃이랑 30분 동안 걷고 왔지.</Text>
+                </View>
+              </View>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -825,7 +852,6 @@ const S = StyleSheet.create({
     backgroundColor: '#ffffff', borderRadius: 22, borderWidth: 1, borderColor: '#f1f5f9',
     shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1,
   },
-  rowSpaceBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   rowIconBase: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
 
   // 헤더
@@ -835,63 +861,12 @@ const S = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
   },
   headerLeft:  { flexDirection: 'row', alignItems: 'center' },
-  headerLogo:  { width: 36, height: 36 },
-  guardianTag: { backgroundColor: '#eef2ff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginLeft: 8 },
-  guardianTagText: { fontSize: 13, fontWeight: '700', color: '#1e3a8a' },
+  guardianTag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginLeft: 10 },
+  guardianTagText: { fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '800' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1d4ed8', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
 
-  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 },
-
-  // 상단 배너 (Sleek Modern Card + Warm Micro Accent)
-  heroBanner: {
-    backgroundColor: '#ffffff', borderRadius: 22, padding: 20, marginBottom: 24,
-    borderWidth: 1, borderColor: '#e8f3ff',
-    shadowColor: '#1b64da', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1,
-  },
-  heroBannerGuardian: {
-    backgroundColor: '#f0fdf4', borderColor: '#bbf7d0',
-  },
-
-  guardianSignalCard: {
-    backgroundColor: '#f0fdf4', borderRadius: 18, borderWidth: 1, borderColor: '#bbf7d0',
-    padding: 16, marginBottom: 16,
-  },
-  signalHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  signalTitle: { fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '800', color: '#065f46' },
-  signalDesc: { fontFamily: FONT_FAMILY, fontSize: 14, color: '#191f28', lineHeight: 22 },
-
-  sectionTitle: { fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#191f28', marginBottom: 14, marginTop: 4 },
-  sectionMore:  { fontFamily: FONT_FAMILY, fontSize: 14, color: '#1b64da', fontWeight: '700' },
-
-  // 빠른 시작
-  quickRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  quickItemBox: { flex: 1, paddingVertical: 16, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
-  quickItemLabel: { fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: '#191f28', textAlign: 'center' },
-
-  // 똑똑이 대화 카드
-  aiCard: {
-    backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ffeef0', borderRadius: 22, padding: 20, marginBottom: 24,
-    shadowColor: '#f04452', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1,
-  },
-  aiCardIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  aiCardTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 4 },
-  aiCardDesc:  { fontSize: 13, color: '#475569', fontWeight: '500' },
-  aiArrow: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-
-  // 주간 통계 및 리스트
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
-  statCard: { flex: 1, padding: 14, alignItems: 'center', borderRadius: 20, borderWidth: 1, borderColor: '#f1f5f9' },
-  statIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  statValue: { fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', color: '#191f28' },
-  statLabel: { fontFamily: FONT_FAMILY, fontSize: 13, color: '#6b7684', marginTop: 2, fontWeight: '500' },
-
-  newsCard: { flexDirection: 'row', alignItems: 'center', padding: 16, marginBottom: 10, borderRadius: 20 },
-  newsText: { fontFamily: FONT_FAMILY, fontSize: 15, color: '#191f28', fontWeight: '500' },
-
-  // 알림 스타일
+  // 알림
   alertHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   alertTitle: { fontFamily: FONT_FAMILY, flex: 1, fontSize: 18, fontWeight: '800', color: '#191f28', marginLeft: 8 },
   alertItem: { flexDirection: 'row', alignItems: 'center', padding: 16, marginBottom: 10 },
@@ -902,17 +877,11 @@ const S = StyleSheet.create({
   tabBar: { flexDirection: 'row', backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 8 },
   tabItem: { flex: 1, alignItems: 'center' },
   tabIconWrap: { width: 44, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  tabIconWrapActive: { backgroundColor: '#e8f3ff' },
   tabLabel: { fontFamily: FONT_FAMILY, fontSize: 12, color: '#8b95a1', marginTop: 3, fontWeight: '500' },
-  tabLabelActive: { fontFamily: FONT_FAMILY, color: '#1b64da', fontWeight: '800' },
+  tabLabelActive: { fontFamily: FONT_FAMILY, fontWeight: '800' },
 
-  // 모달
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '65%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  modalTitle: { fontFamily: FONT_FAMILY, fontSize: 18, fontWeight: '800', color: '#191f28' },
-  historyRowItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  historyDateText: { fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '700', color: '#191f28', marginBottom: 6 },
-  historyStatsContainer: { flexDirection: 'row', gap: 16 },
-  historyStatText: { fontFamily: FONT_FAMILY, fontSize: 14, color: '#6b7684' }
+  // PIN 모달
+  modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(15,23,42,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  pinCard: { width: '100%', maxWidth: 320, backgroundColor: '#ffffff', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 5 },
+  pinInput: { width: '100%', height: 50, backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', textAlign: 'center', fontSize: 18, fontWeight: '800', color: '#0f172a', marginTop: 10 },
 });
