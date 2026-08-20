@@ -583,7 +583,7 @@ export default function DashboardScreen({ navigation, route }) {
                 style={{ marginRight: 4 }}
               />
               <Text style={[S.guardianTagText, { color: userMode === 'guardian' ? '#0d9488' : '#3e4c7d' }]}>
-                {userMode === 'guardian' ? '보호자 모드' : '보호자 전환'}
+                {userMode === 'guardian' ? '어르신 전환' : '보호자 전환'}
               </Text>
             </TouchableOpacity>
           </View>
