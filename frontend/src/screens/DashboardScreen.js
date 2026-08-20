@@ -345,7 +345,7 @@ function SeniorHomeTab({ navigation }) {
   );
 }
 
-// ── 보호자 전용 대시보드 탭 (Guardian Home Tab - 우측 뱃지 완전히 제거 및 100% 여유로운 한 줄 레이아웃) ──────────────────────
+// ── 보호자 전용 대시보드 탭 (Guardian Home Tab - 요청하신 무의미 요소 완전 삭제) ──────────────────────
 function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onOpenGameDetail }) {
   const { currentUser } = useUser();
   const userName = currentUser?.name || '어르신';
@@ -388,15 +388,11 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onO
         </View>
 
         {/* 프로그레스 게이지 */}
-        <View style={{ height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+        <View style={{ height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden', marginBottom: 14 }}>
           <View style={{ width: '20%', height: '100%', backgroundColor: '#0d9488', borderRadius: 4 }} />
         </View>
 
-        <Text style={{ fontFamily: FONT_FAMILY, fontSize: 14, color: '#475569', lineHeight: 21, marginBottom: 12 }}>
-          15문항 중 3개 문항에서 가끔 깜빡함 답변. 인지 상태가 매우 안정적입니다.
-        </Text>
-
-        {/* 클릭 유도 패널 (한 줄 깔끔 정렬) */}
+        {/* 클릭 유도 패널 */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0fdf4', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#bbf7d0' }}>
           <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#166534', flexShrink: 1 }}>
             문항별 답변 세부사항 확인하기
@@ -461,17 +457,6 @@ function GuardianHomeTab({ navigation, onOpenHealthDetail, onOpenTranscript, onO
               </View>
             ))}
           </View>
-        </View>
-
-        {/* 클릭 유도 안내 패널 (한 줄 깔끔 정렬) */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0f9ff', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#bae6fd', marginTop: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 4 }}>
-            <Ionicons name="analytics" size={16} color="#0284c7" />
-            <Text numberOfLines={1} style={{ fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800', color: '#0369a1', flexShrink: 1 }}>
-              차트 클릭 시 4종 게임별 세부 분석 보기
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#0369a1" />
         </View>
       </TouchableOpacity>
 
