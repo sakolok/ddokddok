@@ -60,53 +60,25 @@
 
 **Solution**
 
-실시간 대화는 API Gateway → /turn Lambda에서 처리하고, 세션 종료 후 분석은 /session/end가 SQS에 작업을 전달하도록 분리했습니다.
+- 실시간 대화는 API Gateway → `/turn` Lambda에서 처리합니다.
+- 세션 종료 후 분석은 `/session/end`가 SQS에 작업을 전달하고, 별도의 Analysis Lambda가 소비합니다.
+- Analysis Lambda는 최근 7일 KDSQ 응답을 집계해 결과를 저장하고, 설정된 기준을 충족하면 SNS로 보호자 알림을 전송합니다.
+- 분석 실패는 SQS 재시도와 DLQ로 처리합니다. 메시지는 최대 3회 수신 후 DLQ로 이동하며, DLQ에 메시지가 쌓이면 CloudWatch Alarm이 감지합니다.
 
-별도의 Analysis Lambda가 SQS 메시지를 소비해 최근 7일 KDSQ 응답을 집계하고 세션 분석 결과를 저장한 뒤, 설정된 기준을 충족하면 SNS를 통해 보호자 알림을 전송​하도록 구성했습니다.
+```text
+[실시간 대화]
+Client → API Gateway → Turn Lambda ─┬─ Bedrock
+                                    └─ Polly
 
-Real-time Conversation
+[세션 종료 후 분석]
+/session/end → SQS → Analysis Lambda ─┬─ KDSQ 응답 집계
+                                      └─ SNS (보호자 알림)
 
-Client
-  │
-  ▼
-API Gateway
-  │
-  ▼
-Turn Lambda
-  │
-  ├── Bedrock
-  └── Polly
+[분석 실패 처리]
+SQS → Analysis Lambda ─┬─ 성공 → 분석 결과 저장
+                       └─ 실패 → 재시도 → 3회 수신 후 DLQ → CloudWatch Alarm
+```
 
-
-Post-session Analysis
-
-/session/end
-  │
-  ▼
-SQS
-  │
-  ▼
-Analysis Lambda
-  │
-  ├── KDSQ Responses
-  └── SNS
-
-또한 분석 처리 실패가 실시간 요청 경로로 전파되지 않도록 SQS 재시도와 DLQ를 구성했습니다.
-
-SQS
- │
- ▼
-Analysis Lambda
- │
- ├── Success → Analysis Result
- │
- └── Failure
-       │
-       ├── Retry
-       └── 3회 수신 후 DLQ
-                       │
-                       ▼
-                CloudWatch Alarm
 **Result**
 
 실시간 대화와 세션 후 분석을 서로 다른 실행 경로로 분리했습니다.
@@ -125,28 +97,15 @@ Analysis Lambda
 
 **Solution**
 
-Lambda는 음성 데이터를 중계하지 않고 Amazon Transcribe Streaming에 접속하기 위한 presigned WebSocket URL만 발급하도록 역할을 제한했습니다.
+Lambda는 음성 데이터를 중계하지 않고, Transcribe Streaming에 접속하기 위한 **presigned WebSocket URL 발급**만 담당하도록 역할을 제한했습니다. 클라이언트는 발급받은 URL로 Transcribe Streaming에 직접 연결해 음성 chunk를 전송합니다.
 
-클라이언트는 발급받은 URL을 이용해 Transcribe Streaming에 직접 연결하고 음성 chunk를 전송합니다.
+```text
+1) Client ──(presigned URL 요청)──▶ Lambda ──(URL 발급)──▶ Client
+2) Client ══(WebSocket 직접 연결 · 음성 chunk 전송)══▶ Amazon Transcribe Streaming
+```
 
-Client
-  │
-  ├── 1. Presigned URL 요청
-  │          │
-  │          ▼
-  │       Lambda
-  │          │
-  │      URL 발급
-  │          │
-  ◀──────────┘
-  │
-  └── 2. WebSocket 직접 연결
-             │
-             ▼
-     Amazon Transcribe
-        Streaming
+실시간 Streaming 경로와 별도로, S3 기반 `/transcribe` 음성 처리 API(batch fallback)도 구현해 두었습니다.
 
-실시간 Streaming 경로와 별도로 S3 기반 /transcribe 음성 처리 API도 구현해 두었습니다.
 
 **Result**
 
